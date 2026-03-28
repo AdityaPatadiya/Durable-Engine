@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package durable_engine;
+
+option python_generic_services = true;
+
+message Record {
+  string id = 1;
+  map<string, string> fields = 2;
+  int64 timestamp = 3;
+  string source_file = 4;
+  int64 line_number = 5;
+}
+
+message RecordBatch {
+  repeated Record records = 1;
+  string batch_id = 2;
+}
+
+message SendResponse {
+  bool success = 1;
+  string message = 2;
+  int32 records_accepted = 3;
+}
+
+service RecordService {
+  rpc SendRecord(Record) returns (SendResponse);
+  rpc SendBatch(RecordBatch) returns (SendResponse);
+  rpc StreamRecords(stream Record) returns (stream SendResponse);
+}

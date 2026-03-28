@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Durable Engine Configuration",
+  "type": "object",
+  "required": ["engine", "ingestion", "sinks"],
+  "properties": {
+    "engine": {
+      "type": "object",
+      "required": ["batch_size", "max_queue_size"],
+      "properties": {
+        "name": { "type": "string" },
+        "batch_size": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "max_queue_size": { "type": "integer", "minimum": 100 },
+        "worker_count": { "type": "integer", "minimum": 1 },
+        "shutdown_timeout_seconds": { "type": "integer", "minimum": 5 }
+      }
+    },
+    "ingestion": {
+      "type": "object",
+      "required": ["file_path"],
+      "properties": {
+        "file_path": { "type": "string" },
+        "file_format": { "type": "string", "enum": ["auto", "csv", "jsonl", "fixed_width"] },
+        "encoding": { "type": "string" }
+      }
+    },
+    "sinks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type", "transformer"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "type": { "type": "string", "enum": ["rest", "grpc", "mq", "widecolumn"] },
+          "transformer": { "type": "string", "enum": ["json", "protobuf", "xml", "avro"] },
+          "rate_limit": {
+            "type": "object",
+            "properties": {
+              "requests_per_second": { "type": "number", "minimum": 1 },
+              "burst_size": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "retry": {
+            "type": "object",
+            "properties": {
+              "max_retries": { "type": "integer", "minimum": 0, "maximum": 10 },
+              "base_delay_ms": { "type": "integer", "minimum": 10 },
+              "max_delay_ms": { "type": "integer", "minimum": 100 },
+              "backoff_multiplier": { "type": "number", "minimum": 1.0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
