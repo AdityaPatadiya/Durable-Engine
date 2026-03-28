@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  durable-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: durable-engine
+    volumes:
+      - ./config:/app/config:ro
+      - ./samples:/app/samples:ro
+      - ./output:/app/output
+      - ./dlq:/app/dlq
+    environment:
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8080:8080"   # Health check endpoint
+      - "9090:9090"   # Prometheus metrics
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 4

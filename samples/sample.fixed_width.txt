@@ -1,0 +1,10 @@
+1         Alice Johnson       32             alice.johnson@example.com     active
+2         Bob Smith           28             bob.smith@example.com         active
+3         Charlie Brown       45             charlie.brown@example.com     inactive
+4         Diana Prince        35             diana.prince@example.com      active
+5         Eve Williams        29             eve.williams@example.com      active
+6         Frank Castle        41             frank.castle@example.com      suspended
+7         Grace Hopper        55             grace.hopper@example.com      active
+8         Henry Ford          38             henry.ford@example.com        active
+9         Iris Chang          26             iris.chang@example.com        active
+10        Jack Ryan           33             jack.ryan@example.com         inactive

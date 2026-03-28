@@ -1,0 +1,11 @@
+id,name,age,email,status,department,salary,hire_date,city,country
+1,Alice Johnson,32,alice.johnson@example.com,active,Engineering,95000,2020-03-15,San Francisco,US
+2,Bob Smith,28,bob.smith@example.com,active,Marketing,72000,2021-07-01,New York,US
+3,Charlie Brown,45,charlie.brown@example.com,inactive,Finance,110000,2015-01-20,London,UK
+4,Diana Prince,35,diana.prince@example.com,active,Engineering,105000,2019-06-10,Berlin,DE
+5,Eve Williams,29,eve.williams@example.com,active,HR,68000,2022-02-28,Toronto,CA
+6,Frank Castle,41,frank.castle@example.com,suspended,Security,88000,2017-11-05,Sydney,AU
+7,Grace Hopper,55,grace.hopper@example.com,active,Engineering,150000,2010-09-01,San Francisco,US
+8,Henry Ford,38,henry.ford@example.com,active,Operations,92000,2018-04-22,Detroit,US
+9,Iris Chang,26,iris.chang@example.com,active,Engineering,78000,2023-01-15,Seattle,US
+10,Jack Ryan,33,jack.ryan@example.com,inactive,Analytics,85000,2019-08-30,Chicago,US

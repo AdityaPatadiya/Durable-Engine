@@ -1,0 +1,18 @@
+engine:
+  batch_size: 1000
+  max_queue_size: 50000
+  worker_count: 8
+  shutdown_timeout_seconds: 60
+
+ingestion:
+  file_path: "${INPUT_FILE_PATH}"
+  checkpoint:
+    enabled: true
+    interval_seconds: 5
+
+observability:
+  logging:
+    level: "WARNING"
+    format: "json"
+  reporter:
+    format: "json"

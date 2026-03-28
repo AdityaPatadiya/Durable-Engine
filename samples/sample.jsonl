@@ -1,0 +1,10 @@
+{"id": "1", "name": "Alice Johnson", "age": 32, "email": "alice.johnson@example.com", "status": "active", "department": "Engineering", "salary": 95000, "hire_date": "2020-03-15", "city": "San Francisco", "country": "US"}
+{"id": "2", "name": "Bob Smith", "age": 28, "email": "bob.smith@example.com", "status": "active", "department": "Marketing", "salary": 72000, "hire_date": "2021-07-01", "city": "New York", "country": "US"}
+{"id": "3", "name": "Charlie Brown", "age": 45, "email": "charlie.brown@example.com", "status": "inactive", "department": "Finance", "salary": 110000, "hire_date": "2015-01-20", "city": "London", "country": "UK"}
+{"id": "4", "name": "Diana Prince", "age": 35, "email": "diana.prince@example.com", "status": "active", "department": "Engineering", "salary": 105000, "hire_date": "2019-06-10", "city": "Berlin", "country": "DE"}
+{"id": "5", "name": "Eve Williams", "age": 29, "email": "eve.williams@example.com", "status": "active", "department": "HR", "salary": 68000, "hire_date": "2022-02-28", "city": "Toronto", "country": "CA"}
+{"id": "6", "name": "Frank Castle", "age": 41, "email": "frank.castle@example.com", "status": "suspended", "department": "Security", "salary": 88000, "hire_date": "2017-11-05", "city": "Sydney", "country": "AU"}
+{"id": "7", "name": "Grace Hopper", "age": 55, "email": "grace.hopper@example.com", "status": "active", "department": "Engineering", "salary": 150000, "hire_date": "2010-09-01", "city": "San Francisco", "country": "US"}
+{"id": "8", "name": "Henry Ford", "age": 38, "email": "henry.ford@example.com", "status": "active", "department": "Operations", "salary": 92000, "hire_date": "2018-04-22", "city": "Detroit", "country": "US"}
+{"id": "9", "name": "Iris Chang", "age": 26, "email": "iris.chang@example.com", "status": "active", "department": "Engineering", "salary": 78000, "hire_date": "2023-01-15", "city": "Seattle", "country": "US"}
+{"id": "10", "name": "Jack Ryan", "age": 33, "email": "jack.ryan@example.com", "status": "inactive", "department": "Analytics", "salary": 85000, "hire_date": "2019-08-30", "city": "Chicago", "country": "US"}
