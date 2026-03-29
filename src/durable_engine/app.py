@@ -6,9 +6,12 @@ import structlog
 
 from durable_engine.config.models import EngineConfig
 from durable_engine.ingestion.reader_factory import ReaderFactory
+from durable_engine.observability.health import HealthCheckServer
 from durable_engine.observability.metrics import MetricsCollector
+from durable_engine.observability.prometheus_server import PrometheusServer
 from durable_engine.observability.reporter import MetricsReporter
 from durable_engine.orchestrator.engine import FanOutEngine
+from durable_engine.resilience.checkpoint import CheckpointManager
 from durable_engine.resilience.dlq import DeadLetterQueue
 from durable_engine.sinks.sink_factory import SinkFactory
 from durable_engine.transformation.transformer_registry import TransformerRegistry
@@ -23,6 +26,8 @@ class DurableEngine:
         self.config = config
         self._shutdown_event = asyncio.Event()
         self._metrics = MetricsCollector()
+        self._health_server: HealthCheckServer | None = None
+        self._prometheus_server: PrometheusServer | None = None
 
     def request_shutdown(self) -> None:
         self._shutdown_event.set()
@@ -33,11 +38,27 @@ class DurableEngine:
         source = ReaderFactory.create(self.config.ingestion)
         transformer_registry = TransformerRegistry()
         dlq = DeadLetterQueue(self.config.dlq)
+        checkpoint = CheckpointManager(self.config.ingestion.checkpoint)
         sinks = SinkFactory.create_all(self.config.sinks, self._metrics)
 
         if not sinks:
             logger.error("no_sinks_enabled")
             return 1
+
+        # Start Prometheus metrics server
+        if self.config.observability.metrics.enabled:
+            self._metrics.enable_prometheus()
+            self._prometheus_server = PrometheusServer(self.config.observability.metrics)
+            await self._prometheus_server.start()
+
+        # Start health check server
+        if self.config.observability.health.enabled:
+            self._health_server = HealthCheckServer(
+                config=self.config.observability.health,
+                metrics=self._metrics,
+                sinks=sinks,
+            )
+            await self._health_server.start()
 
         reporter = MetricsReporter(
             metrics=self._metrics,
@@ -53,6 +74,7 @@ class DurableEngine:
             metrics=self._metrics,
             dlq=dlq,
             shutdown_event=self._shutdown_event,
+            checkpoint=checkpoint,
         )
 
         reporter_task = asyncio.create_task(reporter.start())
@@ -80,6 +102,12 @@ class DurableEngine:
                 )
             except asyncio.TimeoutError:
                 logger.warning("cleanup_timed_out")
+
+            # Stop observability servers
+            if self._health_server:
+                await self._health_server.stop()
+            if self._prometheus_server:
+                await self._prometheus_server.stop()
 
             reporter.print_final_summary()
             logger.info("engine_shutdown_complete")

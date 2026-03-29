@@ -32,20 +32,24 @@ def setup_logging(config: LoggingConfig) -> None:
     )
 
     # Configure structlog
+    processors: list = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.TimeStamper(fmt="iso"),
+    ]
+
     if config.format == "json":
+        processors.append(structlog.processors.format_exc_info)
         renderer = structlog.processors.JSONRenderer()
     else:
+        # ConsoleRenderer handles exc_info itself — don't add format_exc_info
         renderer = structlog.dev.ConsoleRenderer()
 
+    processors.append(renderer)
+
     structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.format_exc_info,
-            renderer,
-        ],
+        processors=processors,
         wrapper_class=structlog.make_filtering_bound_logger(log_level),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),

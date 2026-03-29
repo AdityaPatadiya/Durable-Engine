@@ -6,6 +6,7 @@ import structlog
 
 from durable_engine.config.models import SinkConfig
 from durable_engine.ingestion.record import Record
+from durable_engine.ingestion.validator import RecordValidator
 from durable_engine.observability.metrics import MetricsCollector
 from durable_engine.resilience.backpressure import BackpressureQueue
 from durable_engine.resilience.circuit_breaker import CircuitBreaker, CircuitOpenError
@@ -48,6 +49,7 @@ class SinkDispatcher:
         self._retry_handler = RetryHandler(config.retry, sink_name=sink_name)
         self._circuit_breaker = CircuitBreaker(config.circuit_breaker, sink_name=sink_name)
         self._semaphore = asyncio.Semaphore(config.concurrency)
+        self._validator = RecordValidator()
         self._workers: list[asyncio.Task] = []
 
     @property
@@ -83,6 +85,20 @@ class SinkDispatcher:
 
     async def _process_record(self, record: Record) -> None:
         """Process a single record through the full pipeline."""
+        # Validate record before processing
+        result = self._validator.validate(record)
+        if not result.valid:
+            self._metrics.record_failure(self.sink_name)
+            self._dlq.write(
+                record=record,
+                sink_name=self.sink_name,
+                error=f"Validation failed: {'; '.join(result.errors)}",
+                attempts=0,
+            )
+            return
+
+        record = result.sanitized_record or record
+
         async with self._semaphore:
             try:
                 await self._circuit_breaker.check()
