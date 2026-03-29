@@ -5,7 +5,7 @@ import asyncio
 import structlog
 
 from durable_engine.config.models import CoreEngineConfig, SinkConfig
-from durable_engine.ingestion.base import FileReader
+from durable_engine.ingestion.base import RecordSource
 from durable_engine.observability.metrics import MetricsCollector
 from durable_engine.orchestrator.dispatcher import SinkDispatcher
 from durable_engine.orchestrator.pipeline import IngestionPipeline
@@ -22,7 +22,7 @@ class FanOutEngine:
     def __init__(
         self,
         config: CoreEngineConfig,
-        reader: FileReader,
+        reader: RecordSource,
         transformer_registry: TransformerRegistry,
         sinks: dict[str, BaseSink],
         metrics: MetricsCollector,
@@ -74,7 +74,7 @@ class FanOutEngine:
 
         # Create and run the ingestion pipeline
         self._pipeline = IngestionPipeline(
-            reader=self._reader,
+            source=self._reader,
             dispatchers=self._dispatchers,
             batch_size=self._config.batch_size,
         )

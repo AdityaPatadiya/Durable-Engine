@@ -1,0 +1,100 @@
+# Webhook Source — starts an HTTP server and receives records via POST requests.
+# No external dependencies needed beyond the base install.
+#
+# Usage: python -m durable_engine --config config/source-webhook.yaml
+#
+# This starts a server on port 8082, then you send data to it:
+#
+#   # Send a single record:
+#   curl -X POST http://localhost:8082/ingest \
+#     -H "Content-Type: application/json" \
+#     -d '{"name": "Alice", "age": 32, "email": "alice@example.com"}'
+#
+#   # Send a batch of records:
+#   curl -X POST http://localhost:8082/ingest \
+#     -H "Content-Type: application/json" \
+#     -d '[{"name": "Alice", "age": 32}, {"name": "Bob", "age": 28}]'
+#
+#   # Check health:
+#   curl http://localhost:8082/health
+#
+# Runs FOREVER. Press Ctrl+C to stop.
+
+engine:
+  name: "durable-engine-webhook"
+  batch_size: 100
+  max_queue_size: 50000
+  worker_count: 4
+  shutdown_timeout_seconds: 30
+
+ingestion:
+  source_type: "webhook"
+  webhook:
+    host: "0.0.0.0"
+    port: 8082
+    path: "/ingest"
+    # auth_token: "${WEBHOOK_AUTH_TOKEN}"  # Uncomment to require Bearer token
+    max_queue_size: 50000
+
+sinks:
+  rest_api:
+    enabled: true
+    mode: "mock"
+    type: "rest"
+    endpoint: "http://localhost:8081/api/records"
+    transformer: "json"
+    rate_limit:
+      requests_per_second: 100
+      burst_size: 200
+    retry:
+      max_retries: 3
+      base_delay_ms: 100
+      max_delay_ms: 5000
+      backoff_multiplier: 2.0
+    circuit_breaker:
+      failure_threshold: 10
+      recovery_timeout_seconds: 30
+      half_open_max_calls: 3
+    concurrency: 20
+    timeout_seconds: 30
+    batch_size: 50
+    simulation:
+      latency_ms: 20
+      latency_jitter_ms: 10
+      error_rate: 0.01
+      transient_error_rate: 0.9
+
+  message_queue:
+    enabled: true
+    mode: "mock"
+    type: "mq"
+    mq_type: "kafka"
+    endpoint: "localhost:9092"
+    topic: "webhook-events"
+    transformer: "xml"
+    partitions: 6
+    rate_limit:
+      requests_per_second: 500
+      burst_size: 1000
+    concurrency: 15
+    timeout_seconds: 20
+    batch_size: 200
+    simulation:
+      latency_ms: 10
+      latency_jitter_ms: 5
+      error_rate: 0.005
+      transient_error_rate: 0.95
+
+dlq:
+  output_dir: "dlq"
+  max_file_size_mb: 100
+  include_error_metadata: true
+
+observability:
+  reporter:
+    interval_seconds: 5
+    format: "rich"
+  logging:
+    level: "INFO"
+    format: "console"
+    file: "output/engine.log"

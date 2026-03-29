@@ -20,13 +20,60 @@ class CheckpointConfig(BaseModel):
     interval_seconds: int = 10
 
 
+class KafkaSourceConfig(BaseModel):
+    """Config for Kafka consumer source."""
+    brokers: str = "localhost:9092"
+    topic: str = ""
+    group_id: str = "durable-engine"
+    data_format: str = "json"  # json | raw
+    auto_offset_reset: str = "earliest"  # earliest | latest
+    auth_username: str = ""
+    auth_password: str = ""
+    tls_enabled: bool = False
+    tls_ca_path: str = ""
+
+
+class WebhookSourceConfig(BaseModel):
+    """Config for HTTP webhook source."""
+    host: str = "0.0.0.0"
+    port: int = 8082
+    path: str = "/ingest"
+    auth_token: str = ""
+    max_queue_size: int = 50000
+
+
+class PostgresCdcConfig(BaseModel):
+    """Config for PostgreSQL CDC source."""
+    dsn: str = ""  # e.g. "postgresql://user:pass@localhost:5432/mydb"
+    publication: str = "durable_engine_pub"
+    slot_name: str = "durable_engine_slot"
+    tables: list[str] = Field(default_factory=list)
+
+
+class WebSocketSourceConfig(BaseModel):
+    """Config for WebSocket source."""
+    url: str = ""  # e.g. "wss://stream.example.com/events"
+    auth_token: str = ""
+    headers: dict[str, str] = Field(default_factory=dict)
+    reconnect_delay: float = 5.0
+    ping_interval: float = 30.0
+    subscribe_message: str = ""
+
+
 class IngestionConfig(BaseModel):
-    file_path: str
+    source_type: str = "file"  # file | kafka | webhook | postgres_cdc | websocket
+    # File source settings
+    file_path: str = ""
     file_format: str = "auto"
     encoding: str = "utf-8"
     csv: CsvConfig = Field(default_factory=CsvConfig)
     fixed_width: FixedWidthConfig = Field(default_factory=FixedWidthConfig)
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
+    # Live source settings
+    kafka: KafkaSourceConfig = Field(default_factory=KafkaSourceConfig)
+    webhook: WebhookSourceConfig = Field(default_factory=WebhookSourceConfig)
+    postgres_cdc: PostgresCdcConfig = Field(default_factory=PostgresCdcConfig)
+    websocket: WebSocketSourceConfig = Field(default_factory=WebSocketSourceConfig)
 
 
 class RateLimitConfig(BaseModel):
@@ -54,8 +101,31 @@ class SimulationConfig(BaseModel):
     transient_error_rate: float = 0.8
 
 
+class AuthConfig(BaseModel):
+    """Authentication configuration for live sinks."""
+    type: str = "none"  # none | bearer | basic | api_key | mtls
+    token: str = ""
+    username: str = ""
+    password: str = ""
+    api_key: str = ""
+    api_key_header: str = "X-API-Key"
+    cert_path: str = ""
+    key_path: str = ""
+    ca_path: str = ""
+
+
+class TlsConfig(BaseModel):
+    """TLS/SSL configuration for live sinks."""
+    enabled: bool = False
+    cert_path: str = ""
+    key_path: str = ""
+    ca_path: str = ""
+    verify: bool = True
+
+
 class SinkConfig(BaseModel):
     enabled: bool = True
+    mode: str = "mock"  # mock | live
     type: str
     endpoint: str = ""
     transformer: str
@@ -66,13 +136,27 @@ class SinkConfig(BaseModel):
     timeout_seconds: int = 30
     batch_size: int = 50
     simulation: SimulationConfig = Field(default_factory=SimulationConfig)
-    # Sink-specific fields
+    auth: AuthConfig = Field(default_factory=AuthConfig)
+    tls: TlsConfig = Field(default_factory=TlsConfig)
+    # REST-specific
+    http_method: str = "POST"
+    http_path: str = ""
+    headers: dict[str, str] = Field(default_factory=dict)
+    # MQ-specific
     topic: str = ""
     partitions: int = 1
+    mq_type: str = "kafka"  # kafka | rabbitmq
+    rabbitmq_exchange: str = ""
+    rabbitmq_routing_key: str = ""
+    # gRPC-specific
+    streaming_mode: str = "unary"
+    grpc_service: str = ""
+    grpc_method: str = ""
+    # Wide-column DB specific
     keyspace: str = ""
     table: str = ""
     consistency_level: str = "LOCAL_QUORUM"
-    streaming_mode: str = "unary"
+    db_type: str = "cassandra"  # cassandra | scylladb | dynamodb
 
 
 class CoreEngineConfig(BaseModel):

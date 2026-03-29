@@ -1,0 +1,82 @@
+# PostgreSQL CDC Source — streams real-time INSERT/UPDATE/DELETE changes
+# from a PostgreSQL table and fans them out to all sinks.
+#
+# Requires: pip install -e ".[postgres-cdc]"
+#
+# PostgreSQL prerequisites:
+#   1. Set wal_level = logical in postgresql.conf
+#   2. Restart PostgreSQL
+#   3. CREATE PUBLICATION durable_engine_pub FOR TABLE your_table;
+#
+# Usage: python -m durable_engine --config config/source-postgres-cdc.yaml
+#
+# Runs FOREVER, capturing changes as they happen. Press Ctrl+C to stop.
+
+engine:
+  name: "durable-engine-postgres-cdc"
+  batch_size: 100
+  max_queue_size: 20000
+  worker_count: 4
+  shutdown_timeout_seconds: 30
+
+ingestion:
+  source_type: "postgres_cdc"
+  postgres_cdc:
+    dsn: "postgresql://${PG_USER:postgres}:${PG_PASS:postgres}@localhost:5432/${PG_DB:mydb}"
+    publication: "durable_engine_pub"
+    slot_name: "durable_engine_slot"
+    tables: []  # Empty = all tables in the publication
+
+sinks:
+  rest_api:
+    enabled: true
+    mode: "mock"
+    type: "rest"
+    endpoint: "http://localhost:8081/api/records"
+    transformer: "json"
+    rate_limit:
+      requests_per_second: 100
+      burst_size: 200
+    concurrency: 10
+    timeout_seconds: 30
+    batch_size: 50
+    simulation:
+      latency_ms: 20
+      latency_jitter_ms: 10
+      error_rate: 0.01
+      transient_error_rate: 0.9
+
+  message_queue:
+    enabled: true
+    mode: "mock"
+    type: "mq"
+    mq_type: "kafka"
+    endpoint: "localhost:9092"
+    topic: "db-changes"
+    transformer: "json"
+    partitions: 6
+    rate_limit:
+      requests_per_second: 500
+      burst_size: 1000
+    concurrency: 15
+    timeout_seconds: 20
+    batch_size: 200
+    simulation:
+      latency_ms: 10
+      latency_jitter_ms: 5
+      error_rate: 0.005
+      transient_error_rate: 0.95
+
+dlq:
+  output_dir: "dlq"
+  max_file_size_mb: 100
+  include_error_metadata: true
+
+observability:
+  reporter:
+    interval_seconds: 5
+    format: "rich"
+  logging:
+    level: "INFO"
+    format: "console"
+    file: "output/engine.log"

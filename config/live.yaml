@@ -1,0 +1,244 @@
+# Live configuration — connects to real external systems.
+# Copy this file and fill in your actual endpoints, credentials, and settings.
+#
+# Install the required extras for your sinks:
+#   pip install -e ".[kafka]"        # Kafka only
+#   pip install -e ".[rabbitmq]"     # RabbitMQ only
+#   pip install -e ".[cassandra]"    # Cassandra/ScyllaDB only
+#   pip install -e ".[dynamodb]"     # DynamoDB only
+#   pip install -e ".[all-sinks]"    # Everything
+
+engine:
+  name: "durable-engine-live"
+  batch_size: 1000
+  max_queue_size: 50000
+  worker_count: 8
+  shutdown_timeout_seconds: 60
+
+ingestion:
+  file_path: "${INPUT_FILE_PATH:samples/sample.csv}"
+  file_format: "auto"
+  encoding: "utf-8"
+  checkpoint:
+    enabled: true
+    file: "output/checkpoint.json"
+    interval_seconds: 5
+
+sinks:
+  # ─────────────────────────────────────────────────────────
+  # REST API — real HTTP/2 POST to any REST endpoint
+  # ─────────────────────────────────────────────────────────
+  rest_api:
+    enabled: true
+    mode: "live"
+    type: "rest"
+    endpoint: "https://api.example.com"
+    http_path: "/v1/records"
+    http_method: "POST"
+    transformer: "json"
+    headers:
+      Content-Type: "application/json"
+      X-Source: "durable-engine"
+    auth:
+      type: "bearer"              # none | bearer | basic | api_key
+      token: "${REST_API_TOKEN}"
+    tls:
+      enabled: true
+      verify: true
+      # ca_path: "/path/to/ca.pem"  # Optional: custom CA
+    rate_limit:
+      requests_per_second: 50
+      burst_size: 100
+    retry:
+      max_retries: 3
+      base_delay_ms: 200
+      max_delay_ms: 10000
+      backoff_multiplier: 2.0
+    circuit_breaker:
+      failure_threshold: 10
+      recovery_timeout_seconds: 30
+      half_open_max_calls: 3
+    concurrency: 20
+    timeout_seconds: 30
+    batch_size: 50
+
+  # ─────────────────────────────────────────────────────────
+  # gRPC — real gRPC unary calls to a protobuf service
+  # ─────────────────────────────────────────────────────────
+  grpc:
+    enabled: true
+    mode: "live"
+    type: "grpc"
+    endpoint: "grpc.example.com:443"
+    transformer: "protobuf"
+    grpc_service: "durable_engine.RecordService"
+    grpc_method: "SendRecord"
+    streaming_mode: "unary"
+    auth:
+      type: "bearer"
+      token: "${GRPC_AUTH_TOKEN}"
+    tls:
+      enabled: true
+      verify: true
+      # ca_path: "/path/to/ca.pem"
+      # cert_path: "/path/to/client.pem"   # For mTLS
+      # key_path: "/path/to/client-key.pem"
+    rate_limit:
+      requests_per_second: 200
+      burst_size: 500
+    retry:
+      max_retries: 3
+      base_delay_ms: 100
+      max_delay_ms: 5000
+      backoff_multiplier: 2.0
+    circuit_breaker:
+      failure_threshold: 15
+      recovery_timeout_seconds: 20
+      half_open_max_calls: 5
+    concurrency: 30
+    timeout_seconds: 15
+    batch_size: 100
+
+  # ─────────────────────────────────────────────────────────
+  # Kafka — real Kafka producer
+  # Requires: pip install -e ".[kafka]"
+  # ─────────────────────────────────────────────────────────
+  kafka:
+    enabled: true
+    mode: "live"
+    type: "mq"
+    mq_type: "kafka"
+    endpoint: "kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092"
+    topic: "records-ingested"
+    transformer: "json"
+    partitions: 12
+    auth:
+      type: "basic"               # SASL/PLAIN auth
+      username: "${KAFKA_USERNAME}"
+      password: "${KAFKA_PASSWORD}"
+    tls:
+      enabled: true
+      ca_path: "/path/to/kafka-ca.pem"
+    rate_limit:
+      requests_per_second: 5000
+      burst_size: 10000
+    retry:
+      max_retries: 3
+      base_delay_ms: 100
+      max_delay_ms: 5000
+      backoff_multiplier: 2.0
+    circuit_breaker:
+      failure_threshold: 20
+      recovery_timeout_seconds: 15
+      half_open_max_calls: 5
+    concurrency: 20
+    timeout_seconds: 30
+    batch_size: 500
+
+  # ─────────────────────────────────────────────────────────
+  # RabbitMQ — real AMQP publisher
+  # Requires: pip install -e ".[rabbitmq]"
+  # ─────────────────────────────────────────────────────────
+  # rabbitmq:
+  #   enabled: false
+  #   mode: "live"
+  #   type: "mq"
+  #   mq_type: "rabbitmq"
+  #   endpoint: "rabbitmq.example.com:5672"
+  #   topic: "records.ingested"
+  #   transformer: "xml"
+  #   rabbitmq_exchange: "durable_engine"
+  #   rabbitmq_routing_key: "records.new"
+  #   auth:
+  #     type: "basic"
+  #     username: "${RABBITMQ_USER:guest}"
+  #     password: "${RABBITMQ_PASS:guest}"
+  #   tls:
+  #     enabled: false
+  #   rate_limit:
+  #     requests_per_second: 2000
+  #     burst_size: 5000
+  #   concurrency: 15
+  #   timeout_seconds: 20
+  #   batch_size: 200
+
+  # ─────────────────────────────────────────────────────────
+  # Cassandra / ScyllaDB — real CQL UPSERT
+  # Requires: pip install -e ".[cassandra]"
+  # ─────────────────────────────────────────────────────────
+  cassandra:
+    enabled: true
+    mode: "live"
+    type: "widecolumn"
+    db_type: "cassandra"           # cassandra | scylladb
+    endpoint: "cassandra-node-1:9042,cassandra-node-2:9042"
+    keyspace: "fan_out"
+    table: "records"
+    consistency_level: "LOCAL_QUORUM"
+    transformer: "avro"
+    auth:
+      type: "basic"
+      username: "${CASSANDRA_USER}"
+      password: "${CASSANDRA_PASS}"
+    tls:
+      enabled: false
+    rate_limit:
+      requests_per_second: 3000
+      burst_size: 5000
+    retry:
+      max_retries: 3
+      base_delay_ms: 50
+      max_delay_ms: 2000
+      backoff_multiplier: 2.0
+    circuit_breaker:
+      failure_threshold: 20
+      recovery_timeout_seconds: 10
+      half_open_max_calls: 5
+    concurrency: 50
+    timeout_seconds: 10
+    batch_size: 500
+
+  # ─────────────────────────────────────────────────────────
+  # DynamoDB — real AWS PutItem
+  # Requires: pip install -e ".[dynamodb]"
+  # ─────────────────────────────────────────────────────────
+  # dynamodb:
+  #   enabled: false
+  #   mode: "live"
+  #   type: "widecolumn"
+  #   db_type: "dynamodb"
+  #   endpoint: ""                   # Leave empty for AWS default, or set for local
+  #   table: "fan-out-records"
+  #   transformer: "avro"
+  #   auth:
+  #     type: "basic"
+  #     username: "${AWS_ACCESS_KEY_ID}"
+  #     password: "${AWS_SECRET_ACCESS_KEY}"
+  #   rate_limit:
+  #     requests_per_second: 1000
+  #     burst_size: 2000
+  #   concurrency: 25
+  #   timeout_seconds: 10
+  #   batch_size: 25
+
+dlq:
+  output_dir: "dlq"
+  max_file_size_mb: 100
+  include_error_metadata: true
+
+observability:
+  reporter:
+    interval_seconds: 5
+    format: "rich"
+  logging:
+    level: "INFO"
+    format: "json"
+    file: "output/engine.log"
+  health:
+    enabled: true
+    port: 8080
+    path: "/health"
+  metrics:
+    enabled: true
+    port: 9090
+    path: "/metrics"

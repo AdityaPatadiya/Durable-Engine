@@ -1,11 +1,10 @@
 """Pipeline wiring: ingestion -> fan-out to dispatchers."""
 
 import asyncio
-from collections.abc import Generator
 
 import structlog
 
-from durable_engine.ingestion.base import FileReader
+from durable_engine.ingestion.base import RecordSource
 from durable_engine.ingestion.record import Record
 from durable_engine.orchestrator.dispatcher import SinkDispatcher
 
@@ -13,15 +12,15 @@ logger = structlog.get_logger()
 
 
 class IngestionPipeline:
-    """Reads records from the source and fans them out to all sink dispatchers."""
+    """Reads records from any source (file or live stream) and fans them out."""
 
     def __init__(
         self,
-        reader: FileReader,
+        source: RecordSource,
         dispatchers: dict[str, SinkDispatcher],
         batch_size: int = 500,
     ) -> None:
-        self._reader = reader
+        self._source = source
         self._dispatchers = dispatchers
         self._batch_size = batch_size
         self._records_ingested = 0
@@ -34,40 +33,78 @@ class IngestionPipeline:
         """Read records and fan-out to all dispatcher queues."""
         logger.info(
             "pipeline_starting",
-            source=str(self._reader.file_path),
+            source=self._source.source_name,
+            source_type=type(self._source).__name__,
+            streaming=self._source.is_streaming,
             sinks=list(self._dispatchers.keys()),
         )
 
-        loop = asyncio.get_event_loop()
+        await self._source.setup()
 
-        # Run the blocking file read in a thread to not block the event loop
-        reader_gen = self._reader.read_records()
+        try:
+            await self._ingest_loop(shutdown_event)
+        finally:
+            await self._source.teardown()
 
-        batch: list[Record] = []
-        for record in reader_gen:
-            if shutdown_event.is_set():
-                logger.info("pipeline_shutdown_requested")
-                break
-
-            batch.append(record)
-            self._records_ingested += 1
-
-            if len(batch) >= self._batch_size:
-                await self._dispatch_batch(batch)
-                batch = []
-
-        # Dispatch remaining records
-        if batch:
-            await self._dispatch_batch(batch)
-
-        # Signal all dispatchers that ingestion is complete
-        for dispatcher in self._dispatchers.values():
-            await dispatcher.queue.close()
+            for dispatcher in self._dispatchers.values():
+                await dispatcher.queue.close()
 
         logger.info(
             "pipeline_ingestion_complete",
             total_records=self._records_ingested,
         )
+
+    async def _ingest_loop(self, shutdown_event: asyncio.Event) -> None:
+        """Core ingestion loop — reads from source, dispatches to sinks.
+
+        For streaming sources, we race each record read against the shutdown event
+        so Ctrl+C terminates promptly.
+        """
+        batch: list[Record] = []
+        reader_iter = self._source.read_records_async().__aiter__()
+
+        while not shutdown_event.is_set():
+            try:
+                # Race: get next record vs shutdown signal
+                read_task = asyncio.create_task(reader_iter.__anext__())
+                shutdown_task = asyncio.create_task(shutdown_event.wait())
+
+                done, pending = await asyncio.wait(
+                    {read_task, shutdown_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                # Cancel whichever didn't finish
+                for task in pending:
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, StopAsyncIteration):
+                        pass
+
+                if shutdown_task in done:
+                    logger.info("pipeline_shutdown_requested")
+                    break
+
+                if read_task in done:
+                    try:
+                        record = read_task.result()
+                    except StopAsyncIteration:
+                        break  # Source exhausted (file finished)
+
+                    batch.append(record)
+                    self._records_ingested += 1
+
+                    if len(batch) >= self._batch_size:
+                        await self._dispatch_batch(batch)
+                        batch = []
+
+            except StopAsyncIteration:
+                break
+
+        # Dispatch remaining records
+        if batch:
+            await self._dispatch_batch(batch)
 
     async def _dispatch_batch(self, batch: list[Record]) -> None:
         """Fan-out a batch of records to all dispatcher queues."""

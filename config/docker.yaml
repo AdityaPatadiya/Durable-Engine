@@ -1,22 +1,21 @@
+# Docker-compose config — connects to local infra services from docker-compose.yml
+# Usage: docker-compose up -d && python -m durable_engine --config config/docker.yaml
+
 engine:
-  name: "durable-engine"
+  name: "durable-engine-docker"
   batch_size: 500
   max_queue_size: 10000
   worker_count: 4
   shutdown_timeout_seconds: 30
 
 ingestion:
-  source_type: "file"  # file | kafka | webhook | postgres_cdc | websocket
   file_path: "samples/sample.csv"
-  file_format: "auto"  # auto | csv | jsonl | fixed_width
+  file_format: "auto"
   encoding: "utf-8"
   csv:
     delimiter: ","
     quotechar: '"'
     has_header: true
-  fixed_width:
-    column_widths: [10, 20, 15, 30, 10]
-    column_names: ["id", "name", "age", "email", "status"]
   checkpoint:
     enabled: true
     file: "output/checkpoint.json"
@@ -25,10 +24,16 @@ ingestion:
 sinks:
   rest_api:
     enabled: true
-    mode: "mock"  # mock | live
+    mode: "live"
     type: "rest"
-    endpoint: "http://localhost:8081/api/records"
+    endpoint: "http://localhost:8081"
+    http_path: "/post"
+    http_method: "POST"
     transformer: "json"
+    headers:
+      Content-Type: "application/json"
+    auth:
+      type: "none"
     rate_limit:
       requests_per_second: 50
       burst_size: 100
@@ -44,48 +49,39 @@ sinks:
     concurrency: 10
     timeout_seconds: 30
     batch_size: 50
-    simulation:
-      latency_ms: 50
-      latency_jitter_ms: 20
-      error_rate: 0.02
-      transient_error_rate: 0.8
 
   grpc:
-    enabled: true
-    mode: "mock"  # mock | live
+    enabled: false
+    mode: "mock"
     type: "grpc"
     endpoint: "localhost:9091"
     transformer: "protobuf"
-    rate_limit:
-      requests_per_second: 200
-      burst_size: 500
-    retry:
-      max_retries: 3
-      base_delay_ms: 50
-      max_delay_ms: 3000
-      backoff_multiplier: 2.0
-    circuit_breaker:
-      failure_threshold: 10
-      recovery_timeout_seconds: 20
-      half_open_max_calls: 5
-    concurrency: 20
-    timeout_seconds: 15
-    batch_size: 100
-    streaming_mode: "unary"  # unary | bidirectional
+    streaming_mode: "unary"
     simulation:
       latency_ms: 20
       latency_jitter_ms: 10
       error_rate: 0.01
       transient_error_rate: 0.9
+    rate_limit:
+      requests_per_second: 200
+      burst_size: 500
+    concurrency: 20
+    timeout_seconds: 15
+    batch_size: 100
 
-  message_queue:
+  kafka:
     enabled: true
-    mode: "mock"  # mock | live
+    mode: "live"
     type: "mq"
-    mq_type: "kafka"  # kafka | rabbitmq
-    endpoint: "localhost:9092"
+    mq_type: "kafka"
+    endpoint: "localhost:29092"
     topic: "records-topic"
     transformer: "xml"
+    partitions: 6
+    auth:
+      type: "none"
+    tls:
+      enabled: false
     rate_limit:
       requests_per_second: 500
       burst_size: 1000
@@ -101,22 +97,21 @@ sinks:
     concurrency: 15
     timeout_seconds: 20
     batch_size: 200
-    partitions: 6
-    simulation:
-      latency_ms: 10
-      latency_jitter_ms: 5
-      error_rate: 0.005
-      transient_error_rate: 0.95
 
-  wide_column_db:
+  cassandra:
     enabled: true
-    mode: "mock"  # mock | live
+    mode: "live"
     type: "widecolumn"
-    db_type: "cassandra"  # cassandra | scylladb | dynamodb
+    db_type: "cassandra"
     endpoint: "localhost:9042"
     keyspace: "fan_out"
     table: "records"
+    consistency_level: "ONE"
     transformer: "avro"
+    auth:
+      type: "none"
+    tls:
+      enabled: false
     rate_limit:
       requests_per_second: 1000
       burst_size: 2000
@@ -132,12 +127,6 @@ sinks:
     concurrency: 30
     timeout_seconds: 10
     batch_size: 500
-    consistency_level: "LOCAL_QUORUM"
-    simulation:
-      latency_ms: 5
-      latency_jitter_ms: 3
-      error_rate: 0.001
-      transient_error_rate: 0.95
 
 dlq:
   output_dir: "dlq"
@@ -147,10 +136,10 @@ dlq:
 observability:
   reporter:
     interval_seconds: 5
-    format: "rich"  # rich | plain | json
+    format: "rich"
   logging:
     level: "INFO"
-    format: "json"  # json | console
+    format: "console"
     file: "output/engine.log"
   health:
     enabled: true

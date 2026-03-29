@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # ── Durable Engine ──────────────────────────────────────
   durable-engine:
     build:
       context: .
@@ -17,6 +18,110 @@ services:
     ports:
       - "8080:8080"   # Health check endpoint
       - "9090:9090"   # Prometheus metrics
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
     restart: unless-stopped
     mem_limit: 512m
     cpus: 4
+
+  # ── Kafka + Zookeeper ───────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: kafka-topics --bootstrap-server localhost:9092 --list || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RabbitMQ ────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Cassandra ───────────────────────────────────────────
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: "durable-engine-cluster"
+      CASSANDRA_DC: "dc1"
+      MAX_HEAP_SIZE: "256M"
+      HEAP_NEWSIZE: "128M"
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: cqlsh -e "DESCRIBE KEYSPACES" || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ── Cassandra Init (create keyspace + table) ────────────
+  cassandra-init:
+    image: cassandra:4.1
+    container_name: cassandra-init
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    entrypoint: >
+      cqlsh cassandra -e "
+        CREATE KEYSPACE IF NOT EXISTS fan_out
+          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+        CREATE TABLE IF NOT EXISTS fan_out.records (
+          record_id TEXT PRIMARY KEY,
+          data TEXT,
+          source_file TEXT,
+          line_number INT,
+          created_at TIMESTAMP
+        );
+      "
+    restart: "no"
+
+  # ── Mock REST API (httpbin) ─────────────────────────────
+  rest-api:
+    image: kennethreitz/httpbin:latest
+    container_name: rest-api
+    ports:
+      - "8081:80"
+
+volumes:
+  cassandra-data:

@@ -1,0 +1,93 @@
+# Kafka Consumer Source — reads real-time records from a Kafka topic
+# and fans them out to all configured sinks.
+#
+# Requires: pip install -e ".[kafka]"
+#
+# Usage: python -m durable_engine --config config/source-kafka.yaml
+#
+# This runs FOREVER, consuming messages as they arrive.
+# Press Ctrl+C to gracefully shutdown.
+
+engine:
+  name: "durable-engine-kafka-source"
+  batch_size: 500
+  max_queue_size: 20000
+  worker_count: 4
+  shutdown_timeout_seconds: 30
+
+ingestion:
+  source_type: "kafka"
+  kafka:
+    brokers: "localhost:29092"                   # Comma-separated broker list
+    topic: "input-events"                        # Topic to consume from
+    group_id: "durable-engine-consumer"          # Consumer group ID
+    data_format: "json"                          # json | raw
+    auto_offset_reset: "earliest"                # earliest | latest
+    # Auth (uncomment for SASL/PLAIN):
+    # auth_username: "${KAFKA_USER}"
+    # auth_password: "${KAFKA_PASS}"
+    # tls_enabled: true
+    # tls_ca_path: "/path/to/ca.pem"
+
+sinks:
+  rest_api:
+    enabled: true
+    mode: "mock"
+    type: "rest"
+    endpoint: "http://localhost:8081/api/records"
+    transformer: "json"
+    rate_limit:
+      requests_per_second: 100
+      burst_size: 200
+    retry:
+      max_retries: 3
+      base_delay_ms: 100
+      max_delay_ms: 5000
+      backoff_multiplier: 2.0
+    circuit_breaker:
+      failure_threshold: 10
+      recovery_timeout_seconds: 30
+      half_open_max_calls: 3
+    concurrency: 20
+    timeout_seconds: 30
+    batch_size: 50
+    simulation:
+      latency_ms: 20
+      latency_jitter_ms: 10
+      error_rate: 0.01
+      transient_error_rate: 0.9
+
+  wide_column_db:
+    enabled: true
+    mode: "mock"
+    type: "widecolumn"
+    db_type: "cassandra"
+    endpoint: "localhost:9042"
+    keyspace: "fan_out"
+    table: "records"
+    transformer: "avro"
+    rate_limit:
+      requests_per_second: 1000
+      burst_size: 2000
+    concurrency: 30
+    timeout_seconds: 10
+    batch_size: 500
+    simulation:
+      latency_ms: 5
+      latency_jitter_ms: 3
+      error_rate: 0.001
+      transient_error_rate: 0.95
+
+dlq:
+  output_dir: "dlq"
+  max_file_size_mb: 100
+  include_error_metadata: true
+
+observability:
+  reporter:
+    interval_seconds: 5
+    format: "rich"
+  logging:
+    level: "INFO"
+    format: "console"
+    file: "output/engine.log"
