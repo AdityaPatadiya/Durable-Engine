@@ -39,7 +39,7 @@ class FixedWidthFileReader(FileReader):
             offset += width
         return fields
 
-    def read_records(self) -> Generator[Record, None, None]:
+    def _read_records_impl(self) -> Generator[Record, None, None]:
         with open(self._file_path, encoding=self._encoding) as f:
             for line_number, line in enumerate(f, start=1):
                 line = line.rstrip("\n\r")
@@ -47,7 +47,6 @@ class FixedWidthFileReader(FileReader):
                     continue
 
                 data = self._parse_line(line)
-                self._records_read += 1
                 yield Record.from_dict(
                     data=data,
                     source_file=str(self._file_path),

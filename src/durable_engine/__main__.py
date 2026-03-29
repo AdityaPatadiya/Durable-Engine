@@ -51,29 +51,28 @@ def main(config_path: Path, input_file: Path | None, log_level: str | None) -> N
     logger.info(
         "starting_engine",
         config_file=str(config_path),
-        input_file=config.ingestion.file_path,
+        source_type=config.ingestion.source_type,
     )
 
     engine = DurableEngine(config)
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    async def _run() -> int:
+        loop = asyncio.get_event_loop()
 
-    def _handle_signal(sig: int, _frame: object) -> None:
-        logger.info("shutdown_signal_received", signal=signal.Signals(sig).name)
-        loop.call_soon_threadsafe(engine.request_shutdown)
+        def _handle_signal() -> None:
+            logger.info("shutdown_signal_received")
+            engine.request_shutdown()
 
-    signal.signal(signal.SIGINT, _handle_signal)
-    signal.signal(signal.SIGTERM, _handle_signal)
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, _handle_signal)
+
+        return await engine.run()
 
     try:
-        exit_code = loop.run_until_complete(engine.run())
+        exit_code = asyncio.run(_run())
     except KeyboardInterrupt:
         logger.info("keyboard_interrupt")
-        loop.run_until_complete(engine.shutdown())
         exit_code = 1
-    finally:
-        loop.close()
 
     sys.exit(exit_code)
 

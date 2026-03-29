@@ -30,10 +30,14 @@ class DurableEngine:
     async def run(self) -> int:
         logger.info("engine_initializing", engine_name=self.config.engine.name)
 
-        reader = ReaderFactory.create(self.config.ingestion)
+        source = ReaderFactory.create(self.config.ingestion)
         transformer_registry = TransformerRegistry()
         dlq = DeadLetterQueue(self.config.dlq)
         sinks = SinkFactory.create_all(self.config.sinks, self._metrics)
+
+        if not sinks:
+            logger.error("no_sinks_enabled")
+            return 1
 
         reporter = MetricsReporter(
             metrics=self._metrics,
@@ -43,7 +47,7 @@ class DurableEngine:
 
         engine = FanOutEngine(
             config=self.config.engine,
-            reader=reader,
+            reader=source,
             transformer_registry=transformer_registry,
             sinks=sinks,
             metrics=self._metrics,
@@ -68,7 +72,15 @@ class DurableEngine:
             except asyncio.CancelledError:
                 pass
 
-            await engine.cleanup()
+            # Give dispatchers a bounded time to drain
+            try:
+                await asyncio.wait_for(
+                    engine.cleanup(),
+                    timeout=self.config.engine.shutdown_timeout_seconds,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("cleanup_timed_out")
+
             reporter.print_final_summary()
             logger.info("engine_shutdown_complete")
 

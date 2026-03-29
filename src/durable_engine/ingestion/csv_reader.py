@@ -20,7 +20,7 @@ class CsvFileReader(FileReader):
         super().__init__(file_path, encoding)
         self._csv_config = csv_config or CsvConfig()
 
-    def read_records(self) -> Generator[Record, None, None]:
+    def _read_records_impl(self) -> Generator[Record, None, None]:
         with open(self._file_path, newline="", encoding=self._encoding) as f:
             if self._csv_config.has_header:
                 reader = csv.DictReader(
@@ -29,7 +29,6 @@ class CsvFileReader(FileReader):
                     quotechar=self._csv_config.quotechar,
                 )
                 for line_number, row in enumerate(reader, start=2):
-                    self._records_read += 1
                     yield Record.from_dict(
                         data=dict(row),
                         source_file=str(self._file_path),
@@ -42,7 +41,6 @@ class CsvFileReader(FileReader):
                     quotechar=self._csv_config.quotechar,
                 )
                 for line_number, row in enumerate(reader_raw, start=1):
-                    self._records_read += 1
                     data = {f"col_{i}": val for i, val in enumerate(row)}
                     yield Record.from_dict(
                         data=data,

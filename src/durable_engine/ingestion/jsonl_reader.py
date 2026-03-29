@@ -10,7 +10,7 @@ from durable_engine.ingestion.record import Record
 class JsonlFileReader(FileReader):
     """Reads JSONL files line-by-line using a streaming generator."""
 
-    def read_records(self) -> Generator[Record, None, None]:
+    def _read_records_impl(self) -> Generator[Record, None, None]:
         with open(self._file_path, encoding=self._encoding) as f:
             for line_number, line in enumerate(f, start=1):
                 line = line.strip()
@@ -29,7 +29,6 @@ class JsonlFileReader(FileReader):
                         f"Expected JSON object at line {line_number}, got {type(data).__name__}"
                     )
 
-                self._records_read += 1
                 yield Record.from_dict(
                     data=data,
                     source_file=str(self._file_path),

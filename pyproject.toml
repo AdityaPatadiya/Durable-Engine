@@ -19,9 +19,10 @@ dependencies = [
     "structlog>=24.0,<25.0",
     "fastavro>=1.9,<2.0",
     "protobuf>=5.0,<6.0",
+    "grpcio>=1.60,<2.0",
     "grpcio-tools>=1.60,<2.0",
     "lxml>=5.0,<6.0",
-    "httpx>=0.27,<1.0",
+    "httpx[http2]>=0.27,<1.0",
     "rich>=13.0,<14.0",
     "click>=8.1,<9.0",
     "prometheus-client>=0.20,<1.0",
@@ -30,6 +31,30 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+kafka = [
+    "aiokafka>=0.10,<1.0",
+]
+rabbitmq = [
+    "aio-pika>=9.0,<10.0",
+]
+cassandra = [
+    "cassandra-driver>=3.29,<4.0",
+]
+dynamodb = [
+    "aiobotocore>=2.12,<3.0",
+]
+postgres-cdc = [
+    "psycopg[binary]>=3.1,<4.0",
+]
+all-sinks = [
+    "durable-engine[kafka,rabbitmq,cassandra,dynamodb]",
+]
+all-sources = [
+    "durable-engine[kafka,postgres-cdc]",
+]
+all = [
+    "durable-engine[all-sinks,all-sources]",
+]
 dev = [
     "pytest>=8.0,<9.0",
     "pytest-asyncio>=0.23,<1.0",
@@ -38,6 +63,7 @@ dev = [
     "ruff>=0.3,<1.0",
     "mypy>=1.8,<2.0",
     "pre-commit>=3.6,<4.0",
+    "durable-engine[all-sinks]",
 ]
 
 [project.scripts]
