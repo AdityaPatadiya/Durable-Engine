@@ -1,7 +1,11 @@
-"""In-memory metrics collector for tracking throughput and success/failure counts."""
+"""Metrics collector with in-memory counters and optional Prometheus export."""
 
 import threading
 import time
+
+import structlog
+
+logger = structlog.get_logger()
 
 
 class SinkMetrics:
@@ -36,13 +40,36 @@ class SinkMetrics:
 
 
 class MetricsCollector:
-    """Central metrics collector for the engine."""
+    """Central metrics collector with optional Prometheus export."""
 
     def __init__(self) -> None:
         self._sink_metrics: dict[str, SinkMetrics] = {}
         self._start_time = time.monotonic()
         self._ingested_count = 0
         self._lock = threading.Lock()
+        # Prometheus gauges/counters (initialized lazily)
+        self._prom_success: dict[str, object] = {}
+        self._prom_failure: dict[str, object] = {}
+        self._prom_ingested = None
+        self._prom_enabled = False
+
+    def enable_prometheus(self) -> None:
+        """Initialize Prometheus counters."""
+        try:
+            from prometheus_client import Counter, Gauge
+
+            self._prom_ingested = Gauge(
+                "durable_engine_records_ingested_total",
+                "Total records ingested from source",
+            )
+            self._prom_throughput = Gauge(
+                "durable_engine_throughput_rps",
+                "Current throughput in records per second",
+            )
+            self._prom_enabled = True
+            logger.info("prometheus_metrics_enabled")
+        except ImportError:
+            logger.warning("prometheus_client_not_installed")
 
     @property
     def elapsed_seconds(self) -> float:
@@ -54,20 +81,42 @@ class MetricsCollector:
 
     def set_ingested_count(self, count: int) -> None:
         self._ingested_count = count
+        if self._prom_enabled and self._prom_ingested:
+            self._prom_ingested.set(count)
 
     def register_sink(self, sink_name: str) -> None:
         with self._lock:
             self._sink_metrics[sink_name] = SinkMetrics()
 
+        if self._prom_enabled:
+            from prometheus_client import Counter
+
+            self._prom_success[sink_name] = Counter(
+                f"durable_engine_sink_success_total",
+                "Successful records sent to sink",
+                ["sink"],
+            ).labels(sink=sink_name)
+            self._prom_failure[sink_name] = Counter(
+                f"durable_engine_sink_failure_total",
+                "Failed records for sink",
+                ["sink"],
+            ).labels(sink=sink_name)
+
     def record_success(self, sink_name: str) -> None:
         metrics = self._sink_metrics.get(sink_name)
         if metrics:
             metrics.record_success()
+        prom = self._prom_success.get(sink_name)
+        if prom:
+            prom.inc()
 
     def record_failure(self, sink_name: str) -> None:
         metrics = self._sink_metrics.get(sink_name)
         if metrics:
             metrics.record_failure()
+        prom = self._prom_failure.get(sink_name)
+        if prom:
+            prom.inc()
 
     def get_sink_metrics(self, sink_name: str) -> SinkMetrics | None:
         return self._sink_metrics.get(sink_name)
@@ -90,3 +139,10 @@ class MetricsCollector:
         if elapsed <= 0:
             return 0.0
         return self.get_total_processed() / elapsed
+
+    def update_prometheus_gauges(self) -> None:
+        """Update Prometheus gauges (called periodically by reporter)."""
+        if self._prom_enabled:
+            self._prom_throughput.set(self.get_throughput())
+            if self._prom_ingested:
+                self._prom_ingested.set(self._ingested_count)

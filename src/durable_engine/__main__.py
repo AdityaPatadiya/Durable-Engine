@@ -15,7 +15,8 @@ from durable_engine.observability.structured_log import setup_logging
 logger = structlog.get_logger()
 
 
-@click.command()
+@click.group(invoke_without_command=True)
+@click.pass_context
 @click.option(
     "--config",
     "config_path",
@@ -37,8 +38,11 @@ logger = structlog.get_logger()
     help="Override log level.",
 )
 @click.version_option(version="1.0.0", prog_name="durable-engine")
-def main(config_path: Path, input_file: Path | None, log_level: str | None) -> None:
+def main(ctx: click.Context, config_path: Path, input_file: Path | None, log_level: str | None) -> None:
     """Durable Engine - High-Throughput Data Fan-Out & Transformation Engine."""
+    if ctx.invoked_subcommand is not None:
+        return
+
     config = load_config(config_path)
 
     if input_file:
@@ -76,6 +80,11 @@ def main(config_path: Path, input_file: Path | None, log_level: str | None) -> N
 
     sys.exit(exit_code)
 
+
+# Register DLQ replay as a subcommand
+from durable_engine.resilience.dlq_replay import replay_dlq
+
+main.add_command(replay_dlq, name="dlq-replay")
 
 if __name__ == "__main__":
     main()

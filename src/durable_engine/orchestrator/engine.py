@@ -9,6 +9,7 @@ from durable_engine.ingestion.base import RecordSource
 from durable_engine.observability.metrics import MetricsCollector
 from durable_engine.orchestrator.dispatcher import SinkDispatcher
 from durable_engine.orchestrator.pipeline import IngestionPipeline
+from durable_engine.resilience.checkpoint import CheckpointManager
 from durable_engine.resilience.dlq import DeadLetterQueue
 from durable_engine.sinks.base import BaseSink
 from durable_engine.transformation.transformer_registry import TransformerRegistry
@@ -28,6 +29,7 @@ class FanOutEngine:
         metrics: MetricsCollector,
         dlq: DeadLetterQueue,
         shutdown_event: asyncio.Event,
+        checkpoint: CheckpointManager | None = None,
     ) -> None:
         self._config = config
         self._reader = reader
@@ -36,6 +38,7 @@ class FanOutEngine:
         self._metrics = metrics
         self._dlq = dlq
         self._shutdown_event = shutdown_event
+        self._checkpoint = checkpoint
         self._dispatchers: dict[str, SinkDispatcher] = {}
         self._pipeline: IngestionPipeline | None = None
 
@@ -77,6 +80,7 @@ class FanOutEngine:
             source=self._reader,
             dispatchers=self._dispatchers,
             batch_size=self._config.batch_size,
+            checkpoint=self._checkpoint,
         )
 
         await self._pipeline.run(self._shutdown_event)

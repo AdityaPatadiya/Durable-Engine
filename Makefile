@@ -71,6 +71,12 @@ run-postgres-cdc:
 run-prod:
 	python -m durable_engine --config config/production.yaml
 
+dlq-replay:
+	python -m durable_engine dlq-replay --dlq-dir dlq/ --config config/default.yaml
+
+dlq-replay-dry:
+	python -m durable_engine dlq-replay --dlq-dir dlq/ --dry-run
+
 infra-up:
 	@if [ -z "$(DOCKER_COMPOSE)" ]; then echo "Error: Neither 'docker compose' nor 'docker-compose' found. Install with: sudo apt install docker-compose-v2"; exit 1; fi
 	$(DOCKER_COMPOSE) up kafka cassandra rabbitmq rest-api

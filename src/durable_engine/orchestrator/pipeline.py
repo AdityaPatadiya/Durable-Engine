@@ -7,6 +7,7 @@ import structlog
 from durable_engine.ingestion.base import RecordSource
 from durable_engine.ingestion.record import Record
 from durable_engine.orchestrator.dispatcher import SinkDispatcher
+from durable_engine.resilience.checkpoint import CheckpointManager
 
 logger = structlog.get_logger()
 
@@ -19,10 +20,12 @@ class IngestionPipeline:
         source: RecordSource,
         dispatchers: dict[str, SinkDispatcher],
         batch_size: int = 500,
+        checkpoint: CheckpointManager | None = None,
     ) -> None:
         self._source = source
         self._dispatchers = dispatchers
         self._batch_size = batch_size
+        self._checkpoint = checkpoint
         self._records_ingested = 0
 
     @property
@@ -41,6 +44,13 @@ class IngestionPipeline:
 
         await self._source.setup()
 
+        # Start periodic checkpoint saving
+        checkpoint_task = None
+        if self._checkpoint:
+            checkpoint_task = asyncio.create_task(
+                self._checkpoint.start_periodic_save(shutdown_event)
+            )
+
         try:
             await self._ingest_loop(shutdown_event)
         finally:
@@ -49,23 +59,34 @@ class IngestionPipeline:
             for dispatcher in self._dispatchers.values():
                 await dispatcher.queue.close()
 
+            # Final checkpoint save
+            if self._checkpoint:
+                self._checkpoint.save()
+            if checkpoint_task:
+                checkpoint_task.cancel()
+                try:
+                    await checkpoint_task
+                except asyncio.CancelledError:
+                    pass
+
         logger.info(
             "pipeline_ingestion_complete",
             total_records=self._records_ingested,
         )
 
     async def _ingest_loop(self, shutdown_event: asyncio.Event) -> None:
-        """Core ingestion loop — reads from source, dispatches to sinks.
+        """Core ingestion loop with checkpoint skip support."""
+        # Load checkpoint — skip already-processed records for file sources
+        skip_count = 0
+        if self._checkpoint and not self._source.is_streaming:
+            skip_count = self._checkpoint.load(self._source.source_name)
 
-        For streaming sources, we race each record read against the shutdown event
-        so Ctrl+C terminates promptly.
-        """
         batch: list[Record] = []
         reader_iter = self._source.read_records_async().__aiter__()
+        records_seen = 0
 
         while not shutdown_event.is_set():
             try:
-                # Race: get next record vs shutdown signal
                 read_task = asyncio.create_task(reader_iter.__anext__())
                 shutdown_task = asyncio.create_task(shutdown_event.wait())
 
@@ -74,7 +95,6 @@ class IngestionPipeline:
                     return_when=asyncio.FIRST_COMPLETED,
                 )
 
-                # Cancel whichever didn't finish
                 for task in pending:
                     task.cancel()
                     try:
@@ -90,10 +110,19 @@ class IngestionPipeline:
                     try:
                         record = read_task.result()
                     except StopAsyncIteration:
-                        break  # Source exhausted (file finished)
+                        break
+
+                    records_seen += 1
+
+                    # Skip records that were already processed (checkpoint resume)
+                    if records_seen <= skip_count:
+                        continue
 
                     batch.append(record)
                     self._records_ingested += 1
+
+                    if self._checkpoint:
+                        self._checkpoint.advance()
 
                     if len(batch) >= self._batch_size:
                         await self._dispatch_batch(batch)
@@ -102,7 +131,6 @@ class IngestionPipeline:
             except StopAsyncIteration:
                 break
 
-        # Dispatch remaining records
         if batch:
             await self._dispatch_batch(batch)
 
