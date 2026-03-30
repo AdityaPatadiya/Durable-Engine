@@ -41,16 +41,10 @@ class GrpcSink(BaseSink):
                 cert_chain = None
 
                 if self.config.tls.ca_path:
-                    root_certs = await asyncio.to_thread(
-                        Path(self.config.tls.ca_path).read_bytes
-                    )
+                    root_certs = await asyncio.to_thread(Path(self.config.tls.ca_path).read_bytes)
                 if self.config.tls.cert_path and self.config.tls.key_path:
-                    private_key = await asyncio.to_thread(
-                        Path(self.config.tls.key_path).read_bytes
-                    )
-                    cert_chain = await asyncio.to_thread(
-                        Path(self.config.tls.cert_path).read_bytes
-                    )
+                    private_key = await asyncio.to_thread(Path(self.config.tls.key_path).read_bytes)
+                    cert_chain = await asyncio.to_thread(Path(self.config.tls.cert_path).read_bytes)
 
                 credentials = grpc.ssl_channel_credentials(
                     root_certificates=root_certs,

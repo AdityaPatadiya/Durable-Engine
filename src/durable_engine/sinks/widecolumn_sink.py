@@ -127,8 +127,7 @@ class WideColumnDbSink(BaseSink):
             # Prepare the UPSERT statement
             cols = "record_id, data, source_file, line_number, created_at"
             prepared = session.prepare(
-                f"INSERT INTO {self._table} ({cols}) "
-                f"VALUES (?, ?, ?, ?, toTimestamp(now()))"
+                f"INSERT INTO {self._table} ({cols}) VALUES (?, ?, ?, ?, toTimestamp(now()))"
             )
             return cluster, session, prepared
 
