@@ -6,14 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev libxslt1-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
-
 FROM base AS production
+COPY pyproject.toml .
 COPY src/ src/
 COPY config/ config/
 COPY proto/ proto/
 COPY samples/ samples/
+
+RUN pip install --no-cache-dir .
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
