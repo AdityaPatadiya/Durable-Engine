@@ -110,5 +110,5 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --rm durable-engine:${{ github.sha }} \
-            python -c "from durable_engine import __version__; print(f'v{__version__}')"
+          docker run --rm --entrypoint python durable-engine:${{ github.sha }} \
+            -c "from durable_engine import __version__; print(f'v{__version__}')"
