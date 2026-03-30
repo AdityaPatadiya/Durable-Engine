@@ -6,6 +6,8 @@ from pathlib import Path
 
 import structlog
 
+from typing import Any
+
 from durable_engine.config.models import LoggingConfig
 
 
@@ -32,13 +34,14 @@ def setup_logging(config: LoggingConfig) -> None:
     )
 
     # Configure structlog
-    processors: list = [
+    processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.TimeStamper(fmt="iso"),
     ]
 
+    renderer: Any
     if config.format == "json":
         processors.append(structlog.processors.format_exc_info)
         renderer = structlog.processors.JSONRenderer()

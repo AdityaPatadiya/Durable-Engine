@@ -46,7 +46,7 @@ class FixedWidthFileReader(FileReader):
                 if not line.strip():
                     continue
 
-                data = self._parse_line(line)
+                data = dict[str, object](self._parse_line(line))
                 yield Record.from_dict(
                     data=data,
                     source_file=str(self._file_path),

@@ -15,6 +15,7 @@ Usage:
 import asyncio
 import json
 import sys
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import click
@@ -38,7 +39,7 @@ class DlqFileReader(RecordSource):
     def source_name(self) -> str:
         return f"dlq-replay ({len(self._dlq_files)} files)"
 
-    async def read_records_async(self):
+    async def read_records_async(self) -> AsyncIterator[Record]:
         for dlq_file in self._dlq_files:
             logger.info("replaying_dlq_file", file=str(dlq_file))
             content = await asyncio.to_thread(dlq_file.read_text, encoding="utf-8")

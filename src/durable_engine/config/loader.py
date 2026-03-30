@@ -3,8 +3,9 @@
 import os
 import re
 from pathlib import Path
+from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from durable_engine.config.models import EngineConfig
 
@@ -14,7 +15,7 @@ ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)(?::([^}]*))?\}")
 def _interpolate_env_vars(value: str) -> str:
     """Replace ${VAR} or ${VAR:default} with environment variable values."""
 
-    def _replace(match: re.Match) -> str:
+    def _replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
         default = match.group(2)
         env_value = os.environ.get(var_name, default)
@@ -46,7 +47,7 @@ def load_config(config_path: Path) -> EngineConfig:
     return EngineConfig.model_validate(interpolated)
 
 
-def merge_configs(base: dict, override: dict) -> dict:
+def merge_configs(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Deep-merge override config into base config."""
     merged = base.copy()
     for key, value in override.items():

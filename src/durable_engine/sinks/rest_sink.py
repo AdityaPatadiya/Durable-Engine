@@ -1,13 +1,20 @@
 """REST API sink — mock simulation and live HTTP/2 client."""
 
+from __future__ import annotations
+
 import asyncio
 import random
 import ssl
 
 import structlog
 
+from typing import TYPE_CHECKING
+
 from durable_engine.config.models import SinkConfig
 from durable_engine.sinks.base import BaseSink, SinkResult
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = structlog.get_logger()
 
@@ -27,7 +34,7 @@ class RestApiSink(BaseSink):
         super().__init__(name, config)
         self._sim = config.simulation
         self._mode = config.mode
-        self._client = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _do_connect(self) -> None:
         if self._mode == "live":
@@ -89,6 +96,7 @@ class RestApiSink(BaseSink):
         content_type = self.config.headers.get("Content-Type", "application/json")
         method = self.config.http_method.upper()
 
+        assert self._client is not None
         try:
             response = await self._client.request(
                 method=method,

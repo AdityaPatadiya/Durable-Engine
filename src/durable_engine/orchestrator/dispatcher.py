@@ -50,7 +50,7 @@ class SinkDispatcher:
         self._circuit_breaker = CircuitBreaker(config.circuit_breaker, sink_name=sink_name)
         self._semaphore = asyncio.Semaphore(config.concurrency)
         self._validator = RecordValidator()
-        self._workers: list[asyncio.Task] = []
+        self._workers: list[asyncio.Task[None]] = []
 
     @property
     def queue(self) -> BackpressureQueue:
@@ -129,12 +129,12 @@ class SinkDispatcher:
             async def _send() -> SinkResult:
                 return await self._sink.send(data)
 
-            result, attempts = await self._retry_handler.execute_with_retry(
+            send_result, attempts = await self._retry_handler.execute_with_retry(
                 operation=_send,
                 record_id=record.record_id,
             )
 
-            if result.success:
+            if send_result.success:
                 self._metrics.record_success(self.sink_name)
                 await self._circuit_breaker.record_success()
                 self._rate_limiter.adapt_on_success()
@@ -145,7 +145,7 @@ class SinkDispatcher:
                 self._dlq.write(
                     record=record,
                     sink_name=self.sink_name,
-                    error=result.error or "Unknown error",
+                    error=send_result.error or "Unknown error",
                     attempts=attempts,
                 )
 

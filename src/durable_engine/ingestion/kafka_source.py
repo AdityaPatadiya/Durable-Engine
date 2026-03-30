@@ -1,12 +1,20 @@
 """Kafka consumer source — reads real-time records from a Kafka topic."""
 
+from __future__ import annotations
+
 import json
+
 from collections.abc import AsyncIterator
 
 import structlog
 
+from typing import TYPE_CHECKING
+
 from durable_engine.ingestion.base import RecordSource
 from durable_engine.ingestion.record import Record
+
+if TYPE_CHECKING:
+    from aiokafka import AIOKafkaConsumer
 
 logger = structlog.get_logger()
 
@@ -42,7 +50,7 @@ class KafkaSource(RecordSource):
         self._auth_password = auth_password
         self._tls_enabled = tls_enabled
         self._tls_ca_path = tls_ca_path
-        self._consumer = None
+        self._consumer: AIOKafkaConsumer | None = None
 
     @property
     def source_name(self) -> str:
@@ -114,6 +122,7 @@ class KafkaSource(RecordSource):
 
     async def read_records_async(self) -> AsyncIterator[Record]:
         """Consume messages from Kafka indefinitely."""
+        assert self._consumer is not None
         async for msg in self._consumer:
             record = self._parse_message(msg.value, msg.offset, msg.partition)
             self._records_read += 1

@@ -2,17 +2,18 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent / "config" / "schema.json"
 
 
-def load_schema() -> dict:
+def load_schema() -> dict[str, Any]:
     """Load the JSON Schema for config validation."""
     with open(SCHEMA_PATH) as f:
-        return json.load(f)
+        return json.load(f)  # type: ignore[no-any-return]
 
 
-def validate_config_against_schema(config_dict: dict) -> list[str]:
+def validate_config_against_schema(config_dict: dict[str, Any]) -> list[str]:
     """Validate a config dictionary against the JSON Schema. Returns list of errors."""
     errors: list[str] = []
     schema = load_schema()

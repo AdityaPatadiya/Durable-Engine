@@ -1,8 +1,11 @@
 """PostgreSQL CDC (Change Data Capture) source — real-time DB change streaming."""
 
+from __future__ import annotations
+
 import asyncio
 import re
 from collections.abc import AsyncIterator
+from typing import Any
 
 import structlog
 
@@ -77,7 +80,7 @@ class PostgresCdcSource(RecordSource):
         self._slot_name = slot_name
         self._tables = tables or []
         self._poll_interval = poll_interval
-        self._conn = None
+        self._conn: Any = None
 
     @property
     def source_name(self) -> str:

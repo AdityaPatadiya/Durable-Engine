@@ -3,6 +3,7 @@
 import asyncio
 import json
 import random
+from typing import Any
 
 import structlog
 
@@ -38,10 +39,10 @@ class WideColumnDbSink(BaseSink):
         self._db_type = config.db_type
         self._latency_factor = CONSISTENCY_LATENCY_FACTOR.get(self._consistency, 1.0)
         # Live mode state
-        self._cluster = None
-        self._session = None
-        self._prepared_stmt = None
-        self._dynamodb_table = None
+        self._cluster: Any = None
+        self._session: Any = None
+        self._prepared_stmt: Any = None
+        self._dynamodb_table: Any = None
 
     async def _do_connect(self) -> None:
         if self._mode == "live":
@@ -101,7 +102,7 @@ class WideColumnDbSink(BaseSink):
                 ssl_context.verify_mode = ssl.CERT_NONE
             ssl_options = {"ssl_context": ssl_context}
 
-        def _connect():
+        def _connect() -> tuple[Any, Any, Any]:
             cluster = Cluster(
                 contact_points=hosts,
                 port=port,
@@ -188,7 +189,7 @@ class WideColumnDbSink(BaseSink):
             source_file = record_data.get("source_file", record_data.get("__source_file", ""))
             line_number = int(record_data.get("line_number", record_data.get("__line_number", 0)))
 
-            def _execute():
+            def _execute() -> Any:
                 return self._session.execute(
                     self._prepared_stmt,
                     [record_id, fields_json, source_file, line_number],

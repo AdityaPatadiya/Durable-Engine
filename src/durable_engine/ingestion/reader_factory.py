@@ -47,12 +47,13 @@ class ReaderFactory:
 
         if file_format == "auto":
             ext = Path(config.file_path).suffix.lower()
-            file_format = _EXTENSION_MAP.get(ext)
-            if file_format is None:
+            detected_format = _EXTENSION_MAP.get(ext)
+            if detected_format is None:
                 raise ValueError(
                     f"Cannot auto-detect format for extension '{ext}'. "
                     f"Set file_format explicitly in config."
                 )
+            file_format = detected_format
 
         if file_format == "csv":
             return CsvFileReader(

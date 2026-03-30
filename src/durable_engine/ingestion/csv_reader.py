@@ -40,8 +40,8 @@ class CsvFileReader(FileReader):
                     delimiter=self._csv_config.delimiter,
                     quotechar=self._csv_config.quotechar,
                 )
-                for line_number, row in enumerate(reader_raw, start=1):
-                    data = {f"col_{i}": val for i, val in enumerate(row)}
+                for line_number, raw_row in enumerate(reader_raw, start=1):
+                    data: dict[str, object] = {f"col_{i}": val for i, val in enumerate(raw_row)}
                     yield Record.from_dict(
                         data=data,
                         source_file=str(self._file_path),
