@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import random
+from typing import Any
 
 import structlog
 
@@ -29,10 +30,10 @@ class MessageQueueSink(BaseSink):
         self._mq_type = config.mq_type
         self._pending_acks = 0
         # Live mode state
-        self._kafka_producer = None
-        self._rabbitmq_connection = None
-        self._rabbitmq_channel = None
-        self._rabbitmq_exchange = None
+        self._kafka_producer: Any = None
+        self._rabbitmq_connection: Any = None
+        self._rabbitmq_channel: Any = None
+        self._rabbitmq_exchange: Any = None
 
     def _compute_partition(self, data: bytes) -> int:
         """Consistent partition assignment based on data hash."""

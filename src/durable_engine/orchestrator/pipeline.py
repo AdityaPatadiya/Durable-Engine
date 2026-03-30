@@ -86,7 +86,7 @@ class IngestionPipeline:
 
         while not shutdown_event.is_set():
             try:
-                read_task = asyncio.create_task(reader_iter.__anext__())
+                read_task: asyncio.Task[Record] = asyncio.ensure_future(reader_iter.__anext__())
                 shutdown_task = asyncio.create_task(shutdown_event.wait())
 
                 done, pending = await asyncio.wait(

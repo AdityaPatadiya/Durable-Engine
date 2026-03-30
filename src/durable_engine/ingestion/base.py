@@ -35,7 +35,7 @@ class RecordSource(ABC):
         """Initialize connections, subscriptions, etc. Called once before reading."""
 
     @abstractmethod
-    async def read_records_async(self) -> AsyncIterator[Record]:
+    def read_records_async(self) -> AsyncIterator[Record]:
         """Yield records asynchronously. This is the primary interface for the pipeline."""
         ...
 

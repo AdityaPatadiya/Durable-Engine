@@ -27,7 +27,7 @@ class CheckpointManager:
         self._records_processed = 0
         self._last_save_time = 0.0
         self._source_file = ""
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
 
     @property
     def records_processed(self) -> int:
@@ -46,7 +46,7 @@ class CheckpointManager:
         try:
             data = json.loads(self._file.read_text(encoding="utf-8"))
             if data.get("source_file") == source_file:
-                skip = data.get("records_processed", 0)
+                skip: int = data.get("records_processed", 0)
                 logger.info(
                     "checkpoint_loaded",
                     source=source_file,

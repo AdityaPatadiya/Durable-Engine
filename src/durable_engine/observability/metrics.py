@@ -2,6 +2,7 @@
 
 import threading
 import time
+from typing import Any
 
 import structlog
 
@@ -48,9 +49,9 @@ class MetricsCollector:
         self._ingested_count = 0
         self._lock = threading.Lock()
         # Prometheus gauges/counters (initialized lazily)
-        self._prom_success: dict[str, object] = {}
-        self._prom_failure: dict[str, object] = {}
-        self._prom_ingested = None
+        self._prom_success: dict[str, Any] = {}
+        self._prom_failure: dict[str, Any] = {}
+        self._prom_ingested: Any = None
         self._prom_enabled = False
 
     def enable_prometheus(self) -> None:
