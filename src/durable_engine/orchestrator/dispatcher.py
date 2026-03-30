@@ -72,7 +72,7 @@ class SinkDispatcher:
         while True:
             batch = await self._queue.get_batch(
                 batch_size=self._config.batch_size,
-                timeout=0.5,
+                wait_seconds=0.5,
             )
 
             if not batch:
