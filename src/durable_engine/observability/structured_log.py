@@ -3,10 +3,9 @@
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import structlog
-
-from typing import Any
 
 from durable_engine.config.models import LoggingConfig
 

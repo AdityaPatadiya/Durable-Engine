@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-
 from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 import structlog
-
-from typing import TYPE_CHECKING
 
 from durable_engine.ingestion.base import RecordSource
 from durable_engine.ingestion.record import Record

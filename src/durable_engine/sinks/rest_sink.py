@@ -5,10 +5,9 @@ from __future__ import annotations
 import asyncio
 import random
 import ssl
+from typing import TYPE_CHECKING
 
 import structlog
-
-from typing import TYPE_CHECKING
 
 from durable_engine.config.models import SinkConfig
 from durable_engine.sinks.base import BaseSink, SinkResult
