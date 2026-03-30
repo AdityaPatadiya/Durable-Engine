@@ -13,7 +13,7 @@ from durable_engine.resilience.circuit_breaker import CircuitBreaker, CircuitOpe
 from durable_engine.resilience.dlq import DeadLetterQueue
 from durable_engine.resilience.rate_limiter import TokenBucketRateLimiter
 from durable_engine.resilience.retry import RetryHandler
-from durable_engine.sinks.base import BaseSink
+from durable_engine.sinks.base import BaseSink, SinkResult
 from durable_engine.transformation.base import Transformer
 
 logger = structlog.get_logger()
@@ -126,7 +126,7 @@ class SinkDispatcher:
 
             await self._rate_limiter.acquire()
 
-            async def _send() -> "from durable_engine.sinks.base import SinkResult":
+            async def _send() -> SinkResult:
                 return await self._sink.send(data)
 
             result, attempts = await self._retry_handler.execute_with_retry(

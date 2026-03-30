@@ -1,6 +1,7 @@
 """Application bootstrap and orchestrator."""
 
 import asyncio
+import contextlib
 
 import structlog
 
@@ -89,10 +90,8 @@ class DurableEngine:
         finally:
             self._shutdown_event.set()
             reporter_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await reporter_task
-            except asyncio.CancelledError:
-                pass
 
             # Give dispatchers a bounded time to drain
             try:
@@ -100,7 +99,7 @@ class DurableEngine:
                     engine.cleanup(),
                     timeout=self.config.engine.shutdown_timeout_seconds,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("cleanup_timed_out")
 
             # Stop observability servers

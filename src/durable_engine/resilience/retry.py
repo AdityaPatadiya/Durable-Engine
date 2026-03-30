@@ -27,7 +27,7 @@ class RetryHandler:
 
     def _compute_delay(self, attempt: int) -> float:
         """Compute delay with exponential backoff + full jitter."""
-        delay = self._base_delay * (self._multiplier ** attempt)
+        delay = self._base_delay * (self._multiplier**attempt)
         delay = min(delay, self._max_delay)
         jitter = random.uniform(0, delay)
         return jitter

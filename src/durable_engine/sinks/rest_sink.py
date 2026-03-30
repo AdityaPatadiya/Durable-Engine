@@ -117,7 +117,10 @@ class RestApiSink(BaseSink):
         """Simulate an HTTP request with configurable latency/errors."""
         latency = max(
             0.001,
-            (self._sim.latency_ms + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms))
+            (
+                self._sim.latency_ms
+                + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms)
+            )
             / 1000.0,
         )
         await asyncio.sleep(latency)

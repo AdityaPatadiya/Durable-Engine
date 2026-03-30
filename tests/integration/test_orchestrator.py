@@ -18,33 +18,40 @@ from durable_engine.ingestion.csv_reader import CsvFileReader
 from durable_engine.observability.metrics import MetricsCollector
 from durable_engine.orchestrator.engine import FanOutEngine
 from durable_engine.resilience.dlq import DeadLetterQueue
-from durable_engine.sinks.rest_sink import RestApiSink
 from durable_engine.sinks.mq_sink import MessageQueueSink
+from durable_engine.sinks.rest_sink import RestApiSink
 from durable_engine.transformation.transformer_registry import TransformerRegistry
 
 
 class TestOrchestrator:
     @pytest.mark.asyncio
-    async def test_fan_out_to_multiple_sinks(
-        self, sample_csv_path: Path, tmp_dir: Path
-    ) -> None:
+    async def test_fan_out_to_multiple_sinks(self, sample_csv_path: Path, tmp_dir: Path) -> None:
         no_error_sim = SimulationConfig(latency_ms=1, latency_jitter_ms=0, error_rate=0.0)
         fast_rate = RateLimitConfig(requests_per_second=10000, burst_size=20000)
         fast_retry = RetryConfig(max_retries=1, base_delay_ms=10, max_delay_ms=50)
         loose_cb = CircuitBreakerConfig(failure_threshold=100)
 
         rest_config = SinkConfig(
-            type="rest", transformer="json",
-            rate_limit=fast_rate, retry=fast_retry,
-            circuit_breaker=loose_cb, simulation=no_error_sim,
-            concurrency=5, batch_size=10,
+            type="rest",
+            transformer="json",
+            rate_limit=fast_rate,
+            retry=fast_retry,
+            circuit_breaker=loose_cb,
+            simulation=no_error_sim,
+            concurrency=5,
+            batch_size=10,
         )
         mq_config = SinkConfig(
-            type="mq", transformer="xml",
-            rate_limit=fast_rate, retry=fast_retry,
-            circuit_breaker=loose_cb, simulation=no_error_sim,
-            concurrency=5, batch_size=10,
-            topic="test-topic", partitions=2,
+            type="mq",
+            transformer="xml",
+            rate_limit=fast_rate,
+            retry=fast_retry,
+            circuit_breaker=loose_cb,
+            simulation=no_error_sim,
+            concurrency=5,
+            batch_size=10,
+            topic="test-topic",
+            partitions=2,
         )
 
         metrics = MetricsCollector()
@@ -60,9 +67,7 @@ class TestOrchestrator:
         registry = TransformerRegistry()
         dlq = DeadLetterQueue(DlqConfig(output_dir=str(tmp_dir / "dlq")))
 
-        engine_config = CoreEngineConfig(
-            batch_size=5, max_queue_size=100, worker_count=2
-        )
+        engine_config = CoreEngineConfig(batch_size=5, max_queue_size=100, worker_count=2)
 
         engine = FanOutEngine(
             config=engine_config,

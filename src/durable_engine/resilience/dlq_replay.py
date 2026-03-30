@@ -5,7 +5,8 @@ Usage:
     python -m durable_engine.resilience.dlq_replay --dlq-dir dlq/ --config config/default.yaml
 
     # Replay only a specific sink's DLQ
-    python -m durable_engine.resilience.dlq_replay --dlq-dir dlq/ --config config/default.yaml --sink rest_api
+    python -m durable_engine.resilience.dlq_replay \
+        --dlq-dir dlq/ --config config/default.yaml --sink rest_api
 
     # Dry-run (show what would be replayed)
     python -m durable_engine.resilience.dlq_replay --dlq-dir dlq/ --dry-run
@@ -14,13 +15,12 @@ Usage:
 import asyncio
 import json
 import sys
-from collections.abc import Generator
 from pathlib import Path
 
 import click
 import structlog
 
-from durable_engine.ingestion.base import FileReader, RecordSource
+from durable_engine.ingestion.base import RecordSource
 from durable_engine.ingestion.record import Record
 
 logger = structlog.get_logger()
@@ -41,29 +41,29 @@ class DlqFileReader(RecordSource):
     async def read_records_async(self):
         for dlq_file in self._dlq_files:
             logger.info("replaying_dlq_file", file=str(dlq_file))
-            with open(dlq_file, encoding="utf-8") as f:
-                for line_number, line in enumerate(f, start=1):
-                    line = line.strip()
-                    if not line:
-                        continue
+            content = await asyncio.to_thread(dlq_file.read_text, encoding="utf-8")
+            for line_number, line in enumerate(content.splitlines(), start=1):
+                line = line.strip()
+                if not line:
+                    continue
 
-                    try:
-                        entry = json.loads(line)
-                    except json.JSONDecodeError:
-                        logger.warning("invalid_dlq_line", file=str(dlq_file), line=line_number)
-                        continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    logger.warning("invalid_dlq_line", file=str(dlq_file), line=line_number)
+                    continue
 
-                    record = Record.from_dict(
-                        data=entry.get("data", {}),
-                        source_file=entry.get("source_file", f"dlq:{dlq_file.name}"),
-                        line_number=entry.get("line_number", line_number),
-                    )
-                    # Preserve original record_id if available
-                    if "record_id" in entry:
-                        record.record_id = entry["record_id"]
+                record = Record.from_dict(
+                    data=entry.get("data", {}),
+                    source_file=entry.get("source_file", f"dlq:{dlq_file.name}"),
+                    line_number=entry.get("line_number", line_number),
+                )
+                # Preserve original record_id if available
+                if "record_id" in entry:
+                    record.record_id = entry["record_id"]
 
-                    self._records_read += 1
-                    yield record
+                self._records_read += 1
+                yield record
 
 
 def find_dlq_files(dlq_dir: str, sink_filter: str | None = None) -> list[Path]:
@@ -83,35 +83,47 @@ def count_dlq_records(dlq_files: list[Path]) -> dict[str, int]:
     """Count records per DLQ file."""
     counts: dict[str, int] = {}
     for f in dlq_files:
-        count = sum(1 for line in open(f) if line.strip())
+        with open(f) as fh:
+            count = sum(1 for line in fh if line.strip())
         counts[f.stem] = count
     return counts
 
 
 @click.command("dlq-replay")
 @click.option("--dlq-dir", type=click.Path(exists=True), default="dlq", help="DLQ directory")
-@click.option("--config", "config_path", type=click.Path(exists=True), default="config/default.yaml", help="Engine config")
+@click.option(
+    "--config",
+    "config_path",
+    type=click.Path(exists=True),
+    default="config/default.yaml",
+    help="Engine config",
+)
 @click.option("--sink", "sink_filter", default=None, help="Replay only this sink's DLQ")
 @click.option("--dry-run", is_flag=True, help="Show what would be replayed without running")
 @click.option("--clear-after", is_flag=True, help="Delete DLQ files after successful replay")
-def replay_dlq(dlq_dir: str, config_path: str, sink_filter: str | None, dry_run: bool, clear_after: bool) -> None:
+def replay_dlq(
+    dlq_dir: str, config_path: str, sink_filter: str | None, dry_run: bool, clear_after: bool
+) -> None:
     """Replay failed records from the Dead Letter Queue."""
     dlq_files = find_dlq_files(dlq_dir, sink_filter)
 
     if not dlq_files:
-        click.echo(f"No DLQ files found in {dlq_dir}" + (f" for sink '{sink_filter}'" if sink_filter else ""))
+        click.echo(
+            f"No DLQ files found in {dlq_dir}"
+            + (f" for sink '{sink_filter}'" if sink_filter else "")
+        )
         sys.exit(0)
 
     counts = count_dlq_records(dlq_files)
     total = sum(counts.values())
 
-    click.echo(f"\nDLQ Replay Summary")
-    click.echo(f"{'='*50}")
+    click.echo("\nDLQ Replay Summary")
+    click.echo(f"{'=' * 50}")
     for name, count in counts.items():
         click.echo(f"  {name:30s}  {count:>6d} records")
-    click.echo(f"{'─'*50}")
+    click.echo(f"{'─' * 50}")
     click.echo(f"  {'Total':30s}  {total:>6d} records")
-    click.echo(f"{'='*50}\n")
+    click.echo(f"{'=' * 50}\n")
 
     if dry_run:
         click.echo("Dry run — no records will be replayed.")
@@ -122,7 +134,6 @@ def replay_dlq(dlq_dir: str, config_path: str, sink_filter: str | None, dry_run:
         sys.exit(0)
 
     # Run the engine with DLQ files as input
-    from durable_engine.app import DurableEngine
     from durable_engine.config.loader import load_config
     from durable_engine.observability.structured_log import setup_logging
 
@@ -153,7 +164,9 @@ def replay_dlq(dlq_dir: str, config_path: str, sink_filter: str | None, dry_run:
             shutdown_event=asyncio.Event(),
         )
 
-        reporter = MetricsReporter(metrics=metrics, config=config.observability.reporter, sinks=sinks)
+        reporter = MetricsReporter(
+            metrics=metrics, config=config.observability.reporter, sinks=sinks
+        )
 
         await engine.start()
         reporter.print_final_summary()

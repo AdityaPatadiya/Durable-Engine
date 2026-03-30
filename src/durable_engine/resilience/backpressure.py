@@ -1,7 +1,6 @@
 """Bounded async queue with backpressure support."""
 
 import asyncio
-from collections.abc import AsyncIterator
 
 import structlog
 
@@ -60,19 +59,19 @@ class BackpressureQueue:
         self._queue.task_done()
         return item
 
-    async def get_batch(self, batch_size: int, timeout: float = 0.1) -> list[Record]:
-        """Get up to batch_size records, waiting up to timeout for the first one."""
+    async def get_batch(self, batch_size: int, wait_seconds: float = 0.1) -> list[Record]:
+        """Get up to batch_size records, waiting up to wait_seconds for the first one."""
         batch: list[Record] = []
 
         try:
-            first = await asyncio.wait_for(self._queue.get(), timeout=timeout)
+            first = await asyncio.wait_for(self._queue.get(), timeout=wait_seconds)
             if first is None:
                 self._queue.task_done()
                 return batch
             batch.append(first)
             self._total_get += 1
             self._queue.task_done()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return batch
 
         while len(batch) < batch_size:

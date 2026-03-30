@@ -24,8 +24,7 @@ class CircuitOpenError(Exception):
         self.sink_name = sink_name
         self.recovery_time = recovery_time
         super().__init__(
-            f"Circuit breaker OPEN for sink '{sink_name}'. "
-            f"Recovery in {recovery_time:.1f}s"
+            f"Circuit breaker OPEN for sink '{sink_name}'. Recovery in {recovery_time:.1f}s"
         )
 
 

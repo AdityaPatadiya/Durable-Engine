@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+from pathlib import Path
 
 import structlog
 
@@ -40,13 +41,16 @@ class GrpcSink(BaseSink):
                 cert_chain = None
 
                 if self.config.tls.ca_path:
-                    with open(self.config.tls.ca_path, "rb") as f:
-                        root_certs = f.read()
+                    root_certs = await asyncio.to_thread(
+                        Path(self.config.tls.ca_path).read_bytes
+                    )
                 if self.config.tls.cert_path and self.config.tls.key_path:
-                    with open(self.config.tls.key_path, "rb") as f:
-                        private_key = f.read()
-                    with open(self.config.tls.cert_path, "rb") as f:
-                        cert_chain = f.read()
+                    private_key = await asyncio.to_thread(
+                        Path(self.config.tls.key_path).read_bytes
+                    )
+                    cert_chain = await asyncio.to_thread(
+                        Path(self.config.tls.cert_path).read_bytes
+                    )
 
                 credentials = grpc.ssl_channel_credentials(
                     root_certificates=root_certs,
@@ -61,7 +65,8 @@ class GrpcSink(BaseSink):
                     credentials = grpc.composite_channel_credentials(credentials, call_creds)
 
                 self._channel = grpc.aio.secure_channel(
-                    self.config.endpoint, credentials,
+                    self.config.endpoint,
+                    credentials,
                     options=[
                         ("grpc.max_send_message_length", 50 * 1024 * 1024),
                         ("grpc.max_receive_message_length", 50 * 1024 * 1024),
@@ -106,7 +111,7 @@ class GrpcSink(BaseSink):
             method = self.config.grpc_method or "SendRecord"
             full_method = f"/{service}/{method}"
 
-            response = await self._channel.unary_unary(
+            await self._channel.unary_unary(
                 full_method,
                 request_serializer=lambda x: x,  # data is already serialized protobuf
                 response_deserializer=lambda x: x,  # return raw bytes
@@ -139,7 +144,10 @@ class GrpcSink(BaseSink):
 
         latency = max(
             0.001,
-            (self._sim.latency_ms + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms))
+            (
+                self._sim.latency_ms
+                + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms)
+            )
             / 1000.0,
         )
         await asyncio.sleep(latency)

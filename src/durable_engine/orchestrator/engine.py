@@ -4,7 +4,7 @@ import asyncio
 
 import structlog
 
-from durable_engine.config.models import CoreEngineConfig, SinkConfig
+from durable_engine.config.models import CoreEngineConfig
 from durable_engine.ingestion.base import RecordSource
 from durable_engine.observability.metrics import MetricsCollector
 from durable_engine.orchestrator.dispatcher import SinkDispatcher
@@ -86,9 +86,7 @@ class FanOutEngine:
         await self._pipeline.run(self._shutdown_event)
 
         # Wait for all dispatchers to finish processing
-        stop_tasks = [
-            dispatcher.stop() for dispatcher in self._dispatchers.values()
-        ]
+        stop_tasks = [dispatcher.stop() for dispatcher in self._dispatchers.values()]
         await asyncio.gather(*stop_tasks)
 
         self._metrics.set_ingested_count(self._pipeline.records_ingested)

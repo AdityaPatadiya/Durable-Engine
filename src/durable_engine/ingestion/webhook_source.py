@@ -4,8 +4,8 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 
-from aiohttp import web
 import structlog
+from aiohttp import web
 
 from durable_engine.ingestion.base import RecordSource
 from durable_engine.ingestion.record import Record
@@ -119,11 +119,13 @@ class WebhookSource(RecordSource):
             return web.json_response({"error": str(e)}, status=400)
 
     async def _handle_health(self, request: web.Request) -> web.Response:
-        return web.json_response({
-            "status": "healthy",
-            "records_received": self._records_read,
-            "queue_size": self._queue.qsize(),
-        })
+        return web.json_response(
+            {
+                "status": "healthy",
+                "records_received": self._records_read,
+                "queue_size": self._queue.qsize(),
+            }
+        )
 
     async def setup(self) -> None:
         app = web.Application()

@@ -19,9 +19,7 @@ def _interpolate_env_vars(value: str) -> str:
         default = match.group(2)
         env_value = os.environ.get(var_name, default)
         if env_value is None:
-            raise ValueError(
-                f"Environment variable '{var_name}' is not set and has no default"
-            )
+            raise ValueError(f"Environment variable '{var_name}' is not set and has no default")
         return env_value
 
     return ENV_VAR_PATTERN.sub(_replace, value)

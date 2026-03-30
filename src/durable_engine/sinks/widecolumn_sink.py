@@ -57,10 +57,10 @@ class WideColumnDbSink(BaseSink):
 
     async def _connect_cassandra(self) -> None:
         """Connect to a real Cassandra/ScyllaDB cluster."""
-        from cassandra.cluster import Cluster
-        from cassandra.auth import PlainTextAuthProvider
-        from cassandra.policies import DCAwareRoundRobinPolicy
         from cassandra import ConsistencyLevel
+        from cassandra.auth import PlainTextAuthProvider
+        from cassandra.cluster import Cluster
+        from cassandra.policies import DCAwareRoundRobinPolicy
 
         loop = asyncio.get_event_loop()
 
@@ -89,6 +89,7 @@ class WideColumnDbSink(BaseSink):
         ssl_options = None
         if self.config.tls.enabled:
             import ssl
+
             ssl_context = ssl.create_default_context(cafile=self.config.tls.ca_path or None)
             if self.config.tls.cert_path and self.config.tls.key_path:
                 ssl_context.load_cert_chain(
@@ -124,8 +125,9 @@ class WideColumnDbSink(BaseSink):
             )
 
             # Prepare the UPSERT statement
+            cols = "record_id, data, source_file, line_number, created_at"
             prepared = session.prepare(
-                f"INSERT INTO {self._table} (record_id, data, source_file, line_number, created_at) "
+                f"INSERT INTO {self._table} ({cols}) "
                 f"VALUES (?, ?, ?, ?, toTimestamp(now()))"
             )
             return cluster, session, prepared
@@ -175,7 +177,7 @@ class WideColumnDbSink(BaseSink):
 
     async def _send_cassandra(self, data: bytes) -> SinkResult:
         """Execute a real CQL UPSERT."""
-        from cassandra import WriteTimeout, Unavailable, OperationTimedOut
+        from cassandra import OperationTimedOut, Unavailable, WriteTimeout
 
         loop = asyncio.get_event_loop()
 
@@ -244,8 +246,10 @@ class WideColumnDbSink(BaseSink):
         """Simulate a DB UPSERT."""
         latency = max(
             0.001,
-            (self._sim.latency_ms * self._latency_factor
-             + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms))
+            (
+                self._sim.latency_ms * self._latency_factor
+                + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms)
+            )
             / 1000.0,
         )
         await asyncio.sleep(latency)
@@ -253,8 +257,12 @@ class WideColumnDbSink(BaseSink):
         if random.random() < self._sim.error_rate:
             is_transient = random.random() < self._sim.transient_error_rate
             if is_transient:
-                error = random.choice(["WriteTimeoutException", "UnavailableException", "OverloadedException"])
-                return SinkResult.fail(f"CQL {error} (consistency={self._consistency})", retryable=True)
+                error = random.choice(
+                    ["WriteTimeoutException", "UnavailableException", "OverloadedException"]
+                )
+                return SinkResult.fail(
+                    f"CQL {error} (consistency={self._consistency})", retryable=True
+                )
             else:
                 error = random.choice(["InvalidQueryException", "UnauthorizedException"])
                 return SinkResult.fail(f"CQL {error} (keyspace={self._keyspace})", retryable=False)
@@ -264,7 +272,9 @@ class WideColumnDbSink(BaseSink):
     async def send_batch(self, batch: list[bytes]) -> list[SinkResult]:
         if self._mode == "mock":
             # Simulated batch UPSERT
-            latency_per_record = max(0.0005, (self._sim.latency_ms * self._latency_factor * 0.3) / 1000.0)
+            latency_per_record = max(
+                0.0005, (self._sim.latency_ms * self._latency_factor * 0.3) / 1000.0
+            )
             batch_latency = latency_per_record * len(batch)
             await asyncio.sleep(min(batch_latency, 1.0))
 

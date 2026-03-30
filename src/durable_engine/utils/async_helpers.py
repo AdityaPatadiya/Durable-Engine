@@ -26,14 +26,14 @@ async def gather_with_concurrency(
 
 async def run_with_timeout(
     coro: Coroutine[Any, Any, Any],
-    timeout: float,
+    deadline: float,
     description: str = "operation",
 ) -> Any:
     """Run a coroutine with a timeout."""
     try:
-        return await asyncio.wait_for(coro, timeout=timeout)
-    except asyncio.TimeoutError:
-        logger.warning("operation_timed_out", operation=description, timeout_s=timeout)
+        return await asyncio.wait_for(coro, timeout=deadline)
+    except TimeoutError:
+        logger.warning("operation_timed_out", operation=description, timeout_s=deadline)
         raise
 
 

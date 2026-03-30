@@ -7,7 +7,6 @@ import pytest
 
 from durable_engine.config.models import (
     CircuitBreakerConfig,
-    CoreEngineConfig,
     DlqConfig,
     RateLimitConfig,
     RetryConfig,

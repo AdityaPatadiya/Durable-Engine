@@ -47,10 +47,10 @@ class MetricsReporter:
 
     def _print_plain_status(self, elapsed: float, total: int, throughput: float) -> None:
         lines = [
-            f"\n{'='*60}",
+            f"\n{'=' * 60}",
             f"  Status Report  |  Elapsed: {elapsed:.1f}s",
             f"  Records Processed: {total}  |  Throughput: {throughput:.1f} rec/s",
-            f"{'─'*60}",
+            f"{'─' * 60}",
         ]
 
         for sink_name, sink_metrics in self._metrics.get_all_sink_metrics().items():
@@ -59,7 +59,7 @@ class MetricsReporter:
                 f"FAIL: {sink_metrics.failure:>6d}  |  Total: {sink_metrics.total:>8d}"
             )
 
-        lines.append(f"{'='*60}\n")
+        lines.append(f"{'=' * 60}\n")
         print("\n".join(lines))
 
     def _print_rich_status(self, elapsed: float, total: int, throughput: float) -> None:
@@ -68,7 +68,9 @@ class MetricsReporter:
             from rich.table import Table
 
             console = Console()
-            table = Table(title=f"Engine Status  |  {elapsed:.1f}s elapsed  |  {throughput:.1f} rec/s")
+            table = Table(
+                title=f"Engine Status  |  {elapsed:.1f}s elapsed  |  {throughput:.1f} rec/s"
+            )
             table.add_column("Sink", style="cyan")
             table.add_column("Success", style="green", justify="right")
             table.add_column("Failure", style="red", justify="right")
@@ -104,18 +106,18 @@ class MetricsReporter:
         throughput = self._metrics.get_throughput()
         ingested = self._metrics.ingested_count
 
-        print(f"\n{'='*60}")
-        print(f"  FINAL SUMMARY")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("  FINAL SUMMARY")
+        print(f"{'=' * 60}")
         print(f"  Duration:           {elapsed:.2f}s")
         print(f"  Records Ingested:   {ingested}")
         print(f"  Total Dispatched:   {total}")
         print(f"  Total Success:      {self._metrics.get_total_success()}")
         print(f"  Total Failures:     {self._metrics.get_total_failure()}")
         print(f"  Avg Throughput:     {throughput:.1f} rec/s")
-        print(f"{'─'*60}")
+        print(f"{'─' * 60}")
 
         for sink_name, m in self._metrics.get_all_sink_metrics().items():
             print(f"  {sink_name:20s}  OK: {m.success:>8d}  FAIL: {m.failure:>6d}")
 
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
