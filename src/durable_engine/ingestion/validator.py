@@ -27,6 +27,7 @@ _SQL_INJECTION_PATTERN = re.compile(
 @dataclass
 class ValidationResult:
     """Result of validating a record."""
+
     valid: bool
     errors: list[str]
     sanitized_record: Record | None = None
@@ -84,19 +85,21 @@ class RecordValidator:
                 str_val = str_val.strip()
 
             # Check for HTML/script injection
-            if self._sanitize_html and isinstance(value, str):
-                if _SCRIPT_PATTERN.search(str_val):
-                    errors.append(f"Field '{key}' contains potential script injection")
-                    str_val = _SCRIPT_PATTERN.sub("[REMOVED]", str_val)
+            if self._sanitize_html and isinstance(value, str) and _SCRIPT_PATTERN.search(str_val):
+                errors.append(f"Field '{key}' contains potential script injection")
+                str_val = _SCRIPT_PATTERN.sub("[REMOVED]", str_val)
 
             # Check for SQL injection patterns
-            if self._check_sql_injection and isinstance(value, str):
-                if _SQL_INJECTION_PATTERN.search(str_val):
-                    logger.warning(
-                        "potential_sql_injection",
-                        field=key,
-                        record_id=record.record_id,
-                    )
+            if (
+                self._check_sql_injection
+                and isinstance(value, str)
+                and _SQL_INJECTION_PATTERN.search(str_val)
+            ):
+                logger.warning(
+                    "potential_sql_injection",
+                    field=key,
+                    record_id=record.record_id,
+                )
 
             sanitized_data[key] = str_val if isinstance(value, str) else value
 
@@ -114,7 +117,9 @@ class RecordValidator:
 
         return ValidationResult(valid=True, errors=[], sanitized_record=sanitized)
 
-    def validate_batch(self, records: list[Record]) -> tuple[list[Record], list[tuple[Record, list[str]]]]:
+    def validate_batch(
+        self, records: list[Record]
+    ) -> tuple[list[Record], list[tuple[Record, list[str]]]]:
         """Validate a batch. Returns (valid_records, [(invalid_record, errors)])."""
         valid: list[Record] = []
         invalid: list[tuple[Record, list[str]]] = []

@@ -56,7 +56,7 @@ class MetricsCollector:
     def enable_prometheus(self) -> None:
         """Initialize Prometheus counters."""
         try:
-            from prometheus_client import Counter, Gauge
+            from prometheus_client import Gauge
 
             self._prom_ingested = Gauge(
                 "durable_engine_records_ingested_total",
@@ -92,12 +92,12 @@ class MetricsCollector:
             from prometheus_client import Counter
 
             self._prom_success[sink_name] = Counter(
-                f"durable_engine_sink_success_total",
+                "durable_engine_sink_success_total",
                 "Successful records sent to sink",
                 ["sink"],
             ).labels(sink=sink_name)
             self._prom_failure[sink_name] = Counter(
-                f"durable_engine_sink_failure_total",
+                "durable_engine_sink_failure_total",
                 "Failed records for sink",
                 ["sink"],
             ).labels(sink=sink_name)

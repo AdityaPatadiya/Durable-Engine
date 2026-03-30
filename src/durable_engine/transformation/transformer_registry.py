@@ -29,9 +29,7 @@ class TransformerRegistry:
     def get(self, name: str) -> Transformer:
         if name not in self._transformers:
             available = ", ".join(sorted(self._transformers.keys()))
-            raise KeyError(
-                f"Unknown transformer '{name}'. Available: {available}"
-            )
+            raise KeyError(f"Unknown transformer '{name}'. Available: {available}")
         return self._transformers[name]
 
     def list_transformers(self) -> list[str]:

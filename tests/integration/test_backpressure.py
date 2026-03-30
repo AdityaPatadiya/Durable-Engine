@@ -1,6 +1,7 @@
 """Integration tests for backpressure behavior."""
 
 import asyncio
+import contextlib
 
 import pytest
 
@@ -36,10 +37,8 @@ class TestBackpressure:
         assert put_done
 
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
     @pytest.mark.asyncio
     async def test_get_batch(self) -> None:
@@ -48,7 +47,7 @@ class TestBackpressure:
         for i in range(10):
             await queue.put(Record.from_dict({"i": i}, "f", i))
 
-        batch = await queue.get_batch(batch_size=5, timeout=0.5)
+        batch = await queue.get_batch(batch_size=5, wait_seconds=0.5)
         assert len(batch) == 5
 
     @pytest.mark.asyncio

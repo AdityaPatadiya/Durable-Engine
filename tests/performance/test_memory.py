@@ -1,10 +1,7 @@
 """Performance tests for memory usage verification."""
 
-import tempfile
 import tracemalloc
 from pathlib import Path
-
-import pytest
 
 from durable_engine.ingestion.csv_reader import CsvFileReader
 
@@ -27,7 +24,7 @@ class TestMemory:
         count = 0
         peak_snapshots = []
 
-        for record in reader.read_records():
+        for _record in reader.read_records():
             count += 1
             if count % 10000 == 0:
                 _, peak = tracemalloc.get_traced_memory()

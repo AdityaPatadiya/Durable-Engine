@@ -1,6 +1,5 @@
 """Shared test fixtures."""
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -8,13 +7,7 @@ import pytest
 
 from durable_engine.config.models import (
     CircuitBreakerConfig,
-    CoreEngineConfig,
-    CsvConfig,
     DlqConfig,
-    EngineConfig,
-    FixedWidthConfig,
-    IngestionConfig,
-    ObservabilityConfig,
     RateLimitConfig,
     RetryConfig,
     SimulationConfig,

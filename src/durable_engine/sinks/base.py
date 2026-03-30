@@ -94,11 +94,11 @@ class BaseSink(ABC):
     @abstractmethod
     async def _do_send(self, data: bytes) -> SinkResult: ...
 
-    async def _do_flush(self) -> None:
-        pass
+    async def _do_flush(self) -> None:  # noqa: B027
+        """Flush buffered data. Override in subclasses if needed."""
 
-    async def _do_close(self) -> None:
-        pass
+    async def _do_close(self) -> None:  # noqa: B027
+        """Close the connection. Override in subclasses if needed."""
 
     async def __aenter__(self) -> "BaseSink":
         await self.connect()

@@ -5,6 +5,7 @@ On restart, the engine can skip already-processed records.
 """
 
 import asyncio
+import contextlib
 import json
 import time
 from pathlib import Path
@@ -101,10 +102,8 @@ class CheckpointManager:
             return
 
         while not shutdown_event.is_set():
-            try:
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(shutdown_event.wait(), timeout=self._interval)
-            except asyncio.TimeoutError:
-                pass
             self.save()
 
     def clear(self) -> None:

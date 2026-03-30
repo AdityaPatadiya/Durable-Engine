@@ -1,7 +1,5 @@
 """Protobuf transformer for gRPC sinks."""
 
-import struct
-
 from durable_engine.ingestion.record import Record
 from durable_engine.transformation.base import Transformer
 

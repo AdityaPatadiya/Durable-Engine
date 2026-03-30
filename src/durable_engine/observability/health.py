@@ -1,11 +1,7 @@
 """Health check HTTP endpoint."""
 
-import asyncio
-import json
-
-from aiohttp import web
-
 import structlog
+from aiohttp import web
 
 from durable_engine.config.models import HealthConfig
 from durable_engine.observability.metrics import MetricsCollector

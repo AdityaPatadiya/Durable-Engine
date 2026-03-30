@@ -1,6 +1,5 @@
 """Performance tests for throughput benchmarking."""
 
-import asyncio
 import time
 from pathlib import Path
 
@@ -40,7 +39,11 @@ class TestThroughput:
 
         metrics = MetricsCollector()
         metrics.register_sink("perf_test")
-        dlq = DeadLetterQueue(config=__import__("durable_engine.config.models", fromlist=["DlqConfig"]).DlqConfig(output_dir=str(tmp_dir)))
+        dlq = DeadLetterQueue(
+            config=__import__("durable_engine.config.models", fromlist=["DlqConfig"]).DlqConfig(
+                output_dir=str(tmp_dir)
+            )
+        )
 
         sink = RestApiSink("perf_test", sink_config)
         transformer = JsonTransformer()
@@ -71,5 +74,7 @@ class TestThroughput:
         elapsed = time.monotonic() - start
 
         throughput = num_records / elapsed
-        print(f"\nThroughput: {throughput:.0f} records/sec ({num_records} records in {elapsed:.2f}s)")
+        print(
+            f"\nThroughput: {throughput:.0f} records/sec ({num_records} records in {elapsed:.2f}s)"
+        )
         assert throughput > 100, f"Throughput {throughput:.0f} rec/s below minimum 100 rec/s"

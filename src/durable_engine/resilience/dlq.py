@@ -1,7 +1,6 @@
 """Dead Letter Queue for persisting failed records."""
 
 import json
-import os
 import time
 from pathlib import Path
 

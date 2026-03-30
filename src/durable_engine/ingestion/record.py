@@ -18,7 +18,9 @@ class Record:
     timestamp: float = field(default_factory=time.time)
 
     @classmethod
-    def from_dict(cls, data: dict[str, object], source_file: str = "", line_number: int = 0) -> Record:
+    def from_dict(
+        cls, data: dict[str, object], source_file: str = "", line_number: int = 0
+    ) -> Record:
         return cls(
             data=data,
             source_file=source_file,

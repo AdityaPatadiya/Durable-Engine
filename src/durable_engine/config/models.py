@@ -22,6 +22,7 @@ class CheckpointConfig(BaseModel):
 
 class KafkaSourceConfig(BaseModel):
     """Config for Kafka consumer source."""
+
     brokers: str = "localhost:9092"
     topic: str = ""
     group_id: str = "durable-engine"
@@ -35,6 +36,7 @@ class KafkaSourceConfig(BaseModel):
 
 class WebhookSourceConfig(BaseModel):
     """Config for HTTP webhook source."""
+
     host: str = "0.0.0.0"
     port: int = 8082
     path: str = "/ingest"
@@ -44,6 +46,7 @@ class WebhookSourceConfig(BaseModel):
 
 class PostgresCdcConfig(BaseModel):
     """Config for PostgreSQL CDC source."""
+
     dsn: str = ""  # e.g. "postgresql://user:pass@localhost:5432/mydb"
     publication: str = "durable_engine_pub"
     slot_name: str = "durable_engine_slot"
@@ -52,6 +55,7 @@ class PostgresCdcConfig(BaseModel):
 
 class WebSocketSourceConfig(BaseModel):
     """Config for WebSocket source."""
+
     url: str = ""  # e.g. "wss://stream.example.com/events"
     auth_token: str = ""
     headers: dict[str, str] = Field(default_factory=dict)
@@ -103,6 +107,7 @@ class SimulationConfig(BaseModel):
 
 class AuthConfig(BaseModel):
     """Authentication configuration for live sinks."""
+
     type: str = "none"  # none | bearer | basic | api_key | mtls
     token: str = ""
     username: str = ""
@@ -116,6 +121,7 @@ class AuthConfig(BaseModel):
 
 class TlsConfig(BaseModel):
     """TLS/SSL configuration for live sinks."""
+
     enabled: bool = False
     cert_path: str = ""
     key_path: str = ""

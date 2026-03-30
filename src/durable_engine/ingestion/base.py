@@ -31,18 +31,16 @@ class RecordSource(ABC):
         """Whether this source produces records indefinitely (True) or finishes (False)."""
         return False
 
-    async def setup(self) -> None:
+    async def setup(self) -> None:  # noqa: B027
         """Initialize connections, subscriptions, etc. Called once before reading."""
-        pass
 
     @abstractmethod
     async def read_records_async(self) -> AsyncIterator[Record]:
         """Yield records asynchronously. This is the primary interface for the pipeline."""
         ...
 
-    async def teardown(self) -> None:
+    async def teardown(self) -> None:  # noqa: B027
         """Clean up connections. Called once after reading is done."""
-        pass
 
     def estimate_total_records(self) -> int | None:
         """Estimate total number of records. Returns None for streaming sources."""

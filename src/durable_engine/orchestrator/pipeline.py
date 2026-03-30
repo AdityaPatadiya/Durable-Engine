@@ -1,6 +1,7 @@
 """Pipeline wiring: ingestion -> fan-out to dispatchers."""
 
 import asyncio
+import contextlib
 
 import structlog
 
@@ -64,10 +65,8 @@ class IngestionPipeline:
                 self._checkpoint.save()
             if checkpoint_task:
                 checkpoint_task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await checkpoint_task
-                except asyncio.CancelledError:
-                    pass
 
         logger.info(
             "pipeline_ingestion_complete",
@@ -97,10 +96,8 @@ class IngestionPipeline:
 
                 for task in pending:
                     task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration):
                         await task
-                    except (asyncio.CancelledError, StopAsyncIteration):
-                        pass
 
                 if shutdown_task in done:
                     logger.info("pipeline_shutdown_requested")
@@ -137,8 +134,5 @@ class IngestionPipeline:
     async def _dispatch_batch(self, batch: list[Record]) -> None:
         """Fan-out a batch of records to all dispatcher queues."""
         for record in batch:
-            tasks = [
-                dispatcher.queue.put(record)
-                for dispatcher in self._dispatchers.values()
-            ]
+            tasks = [dispatcher.queue.put(record) for dispatcher in self._dispatchers.values()]
             await asyncio.gather(*tasks)

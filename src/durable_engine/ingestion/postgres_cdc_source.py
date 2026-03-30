@@ -1,7 +1,6 @@
 """PostgreSQL CDC (Change Data Capture) source — real-time DB change streaming."""
 
 import asyncio
-import json
 import re
 from collections.abc import AsyncIterator
 
@@ -17,9 +16,7 @@ logger = structlog.get_logger()
 _CHANGE_PATTERN = re.compile(
     r"table (?P<schema>\w+)\.(?P<table>\w+): (?P<operation>\w+): (?P<columns>.*)"
 )
-_COLUMN_PATTERN = re.compile(
-    r"(?P<name>\w+)\[(?P<type>\w+)\]:(?P<value>'[^']*'|\S+)"
-)
+_COLUMN_PATTERN = re.compile(r"(?P<name>\w+)\[(?P<type>\w+)\]:(?P<value>'[^']*'|\S+)")
 
 
 def _parse_test_decoding_output(data: str) -> dict[str, object]:
@@ -27,7 +24,10 @@ def _parse_test_decoding_output(data: str) -> dict[str, object]:
     match = _CHANGE_PATTERN.match(data)
     if not match:
         # BEGIN/COMMIT or unrecognized lines
-        return {"__cdc_raw": data, "__cdc_operation": data.split(":")[0].strip() if ":" in data else "unknown"}
+        return {
+            "__cdc_raw": data,
+            "__cdc_operation": data.split(":")[0].strip() if ":" in data else "unknown",
+        }
 
     result: dict[str, object] = {
         "__cdc_schema": match.group("schema"),
@@ -107,7 +107,9 @@ class PostgresCdcSource(RecordSource):
                         "SELECT pg_create_logical_replication_slot(%s, 'test_decoding')",
                         [self._slot_name],
                     )
-                    logger.info("cdc_replication_slot_created", slot=self._slot_name, plugin="test_decoding")
+                    logger.info(
+                        "cdc_replication_slot_created", slot=self._slot_name, plugin="test_decoding"
+                    )
                 else:
                     logger.info("cdc_replication_slot_exists", slot=self._slot_name)
         except Exception as e:
@@ -149,9 +151,10 @@ class PostgresCdcSource(RecordSource):
                         change_data["__cdc_lsn"] = str(lsn)
                         change_data["__cdc_xid"] = str(xid)
 
+                        table = table_name or "unknown"
                         record = Record.from_dict(
                             data=change_data,
-                            source_file=f"postgres-cdc://{self._publication}/{table_name or 'unknown'}",
+                            source_file=f"postgres-cdc://{self._publication}/{table}",
                             line_number=self._records_read + 1,
                         )
                         self._records_read += 1

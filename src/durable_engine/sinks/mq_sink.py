@@ -177,7 +177,10 @@ class MessageQueueSink(BaseSink):
         partition = self._compute_partition(data)
         latency = max(
             0.001,
-            (self._sim.latency_ms + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms))
+            (
+                self._sim.latency_ms
+                + random.uniform(-self._sim.latency_jitter_ms, self._sim.latency_jitter_ms)
+            )
             / 1000.0,
         )
         await asyncio.sleep(latency)
@@ -185,7 +188,9 @@ class MessageQueueSink(BaseSink):
         if random.random() < self._sim.error_rate:
             is_transient = random.random() < self._sim.transient_error_rate
             if is_transient:
-                error = random.choice(["LEADER_NOT_AVAILABLE", "REQUEST_TIMED_OUT", "NOT_ENOUGH_REPLICAS"])
+                error = random.choice(
+                    ["LEADER_NOT_AVAILABLE", "REQUEST_TIMED_OUT", "NOT_ENOUGH_REPLICAS"]
+                )
                 return SinkResult.fail(f"MQ {error} (partition={partition})", retryable=True)
             else:
                 error = random.choice(["MESSAGE_TOO_LARGE", "TOPIC_AUTHORIZATION_FAILED"])

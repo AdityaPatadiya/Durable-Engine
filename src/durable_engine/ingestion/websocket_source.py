@@ -54,49 +54,51 @@ class WebSocketSource(RecordSource):
 
         while True:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.ws_connect(
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.ws_connect(
                         self._url,
                         headers=extra_headers,
                         heartbeat=self._ping_interval,
-                    ) as ws:
-                        logger.info("websocket_connected", url=self._url)
+                    ) as ws,
+                ):
+                    logger.info("websocket_connected", url=self._url)
 
-                        # Send subscription message if configured
-                        if self._subscribe_message:
-                            await ws.send_str(self._subscribe_message)
-                            logger.debug("websocket_subscribed", message=self._subscribe_message)
+                    # Send subscription message if configured
+                    if self._subscribe_message:
+                        await ws.send_str(self._subscribe_message)
+                        logger.debug("websocket_subscribed", message=self._subscribe_message)
 
-                        async for msg in ws:
-                            if msg.type == aiohttp.WSMsgType.TEXT:
-                                try:
-                                    data = json.loads(msg.data)
-                                    if not isinstance(data, dict):
-                                        data = {"value": data}
-                                except json.JSONDecodeError:
-                                    data = {"raw": msg.data}
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+                                if not isinstance(data, dict):
+                                    data = {"value": data}
+                            except json.JSONDecodeError:
+                                data = {"raw": msg.data}
 
-                                record = Record.from_dict(
-                                    data=data,
-                                    source_file=f"websocket://{self._url}",
-                                    line_number=self._records_read + 1,
-                                )
-                                self._records_read += 1
-                                yield record
+                            record = Record.from_dict(
+                                data=data,
+                                source_file=f"websocket://{self._url}",
+                                line_number=self._records_read + 1,
+                            )
+                            self._records_read += 1
+                            yield record
 
-                            elif msg.type == aiohttp.WSMsgType.BINARY:
-                                data = {"raw_hex": msg.data.hex(), "size": len(msg.data)}
-                                record = Record.from_dict(
-                                    data=data,
-                                    source_file=f"websocket://{self._url}",
-                                    line_number=self._records_read + 1,
-                                )
-                                self._records_read += 1
-                                yield record
+                        elif msg.type == aiohttp.WSMsgType.BINARY:
+                            data = {"raw_hex": msg.data.hex(), "size": len(msg.data)}
+                            record = Record.from_dict(
+                                data=data,
+                                source_file=f"websocket://{self._url}",
+                                line_number=self._records_read + 1,
+                            )
+                            self._records_read += 1
+                            yield record
 
-                            elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
-                                logger.warning("websocket_closed", url=self._url)
-                                break
+                        elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                            logger.warning("websocket_closed", url=self._url)
+                            break
 
             except Exception as e:
                 logger.error("websocket_error", url=self._url, error=str(e))
