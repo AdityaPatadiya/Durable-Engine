@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: durable-engine-output
+spec:
+  resources:
+    requests:
+      storage: 5Gi

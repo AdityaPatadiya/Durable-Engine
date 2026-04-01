@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: durable-engine-config
+data:
+  engine.yaml: |
+    engine:
+      name: "durable-engine-production"
+      batch_size: 1000
+      max_queue_size: 50000
+      worker_count: 8
+      shutdown_timeout_seconds: 60
+    ingestion:
+      file_path: "${INPUT_FILE_PATH}"
+      file_format: "auto"
+      checkpoint:
+        enabled: true
+        file: "output/checkpoint.json"
+        interval_seconds: 5
+    sinks:
+      rest_api:
+        enabled: true
+        mode: "live"
+        type: "rest"
+        endpoint: "https://api.example.com"
+        http_path: "/v1/records"
+        http_method: "POST"
+        transformer: "json"
+        headers:
+          Content-Type: "application/json"
+          X-Source: "durable-engine"
+        auth:
+          type: "bearer"
+          token: "${REST_API_TOKEN}"
+        tls:
+          enabled: true
+          verify: true
+        rate_limit:
+          requests_per_second: 100
+          burst_size: 200
+        retry:
+          max_retries: 3
+          base_delay_ms: 200
+          max_delay_ms: 10000
+          backoff_multiplier: 2.0
+        circuit_breaker:
+          failure_threshold: 10
+          recovery_timeout_seconds: 30
+          half_open_max_calls: 3
+        concurrency: 20
+        timeout_seconds: 30
+        batch_size: 50
+      kafka:
+        enabled: true
+        mode: "live"
+        type: "mq"
+        mq_type: "kafka"
+        endpoint: "kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092"
+        topic: "records-ingested"
+        transformer: "json"
+        partitions: 12
+        auth:
+          type: "basic"
+          username: "${KAFKA_USERNAME}"
+          password: "${KAFKA_PASSWORD}"
+        tls:
+          enabled: true
+        rate_limit:
+          requests_per_second: 5000
+          burst_size: 10000
+        concurrency: 20
+        timeout_seconds: 30
+        batch_size: 500
+      cassandra:
+        enabled: true
+        mode: "live"
+        type: "widecolumn"
+        db_type: "cassandra"
+        endpoint: "cassandra-node-1:9042,cassandra-node-2:9042"
+        keyspace: "fan_out"
+        table: "records"
+        consistency_level: "LOCAL_QUORUM"
+        transformer: "avro"
+        auth:
+          type: "basic"
+          username: "${CASSANDRA_USER}"
+          password: "${CASSANDRA_PASS}"
+        rate_limit:
+          requests_per_second: 3000
+          burst_size: 5000
+        concurrency: 50
+        timeout_seconds: 10
+        batch_size: 500
+    dlq:
+      output_dir: "dlq"
+      max_file_size_mb: 100
+      include_error_metadata: true
+    observability:
+      reporter:
+        interval_seconds: 5
+        format: "json"
+      logging:
+        level: "WARNING"
+        format: "json"
+        file: "output/engine.log"
+      health:
+        enabled: true
+        port: 8080
+        path: "/health"
+      metrics:
+        enabled: true
+        port: 9090
+        path: "/metrics"
