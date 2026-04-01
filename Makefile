@@ -1,4 +1,6 @@
-.PHONY: install dev test lint format run clean docker-build docker-up
+.PHONY: install dev test lint format run clean docker-build docker-up \
+	helm-template helm-lint helm-install helm-upgrade helm-uninstall \
+	k8s-staging k8s-production
 
 # Auto-detect docker compose command
 DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo ""; fi)
@@ -101,3 +103,53 @@ docker-down:
 
 proto:
 	python -m grpc_tools.protoc -I proto --python_out=src/durable_engine/transformation --grpc_python_out=src/durable_engine/transformation proto/record.proto
+
+# ── Helm ──────────────────────────────────────────────────
+HELM_RELEASE ?= durable-engine
+HELM_NAMESPACE ?= durable-engine
+HELM_CHART := helm/durable-engine
+
+helm-template:
+	helm template $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE)
+
+helm-template-staging:
+	helm template $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE)-staging -f $(HELM_CHART)/values-staging.yaml
+
+helm-template-production:
+	helm template $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE)-production -f $(HELM_CHART)/values-production.yaml
+
+helm-lint:
+	helm lint $(HELM_CHART)
+	helm lint $(HELM_CHART) -f $(HELM_CHART)/values-staging.yaml
+	helm lint $(HELM_CHART) -f $(HELM_CHART)/values-production.yaml
+
+helm-install:
+	helm install $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE) --create-namespace
+
+helm-install-staging:
+	helm install $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE)-staging --create-namespace -f $(HELM_CHART)/values-staging.yaml
+
+helm-install-production:
+	helm install $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE)-production --create-namespace -f $(HELM_CHART)/values-production.yaml
+
+helm-upgrade:
+	helm upgrade $(HELM_RELEASE) $(HELM_CHART) --namespace $(HELM_NAMESPACE)
+
+helm-uninstall:
+	helm uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+# ── Kustomize ─────────────────────────────────────────────
+k8s-base:
+	kubectl kustomize k8s/base
+
+k8s-staging:
+	kubectl kustomize k8s/overlays/staging
+
+k8s-production:
+	kubectl kustomize k8s/overlays/production
+
+k8s-apply-staging:
+	kubectl apply -k k8s/overlays/staging
+
+k8s-apply-production:
+	kubectl apply -k k8s/overlays/production

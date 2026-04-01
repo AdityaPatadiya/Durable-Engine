@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: durable-engine-production
+
+namePrefix: prod-
+
+resources:
+  - ../../base
+  - hpa.yaml
+  - pdb.yaml
+
+patches:
+  - path: deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: durable-engine
+  - path: configmap-patch.yaml
+    target:
+      kind: ConfigMap
+      name: durable-engine-config
+  - path: pvc-dlq-patch.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: durable-engine-dlq
+  - path: pvc-output-patch.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: durable-engine-output
+
+images:
+  - name: durable-engine
+    newName: ghcr.io/adityap-cruv/durable-engine
+    # newTag: set via kustomize edit set image during CI/CD

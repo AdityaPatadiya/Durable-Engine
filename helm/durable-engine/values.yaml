@@ -1,0 +1,193 @@
+# -- Number of replicas
+replicaCount: 1
+
+image:
+  # -- Container image repository
+  repository: durable-engine
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag (default is the chart appVersion)
+  tag: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full release name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Annotations for the service account
+  annotations: {}
+  # -- Service account name override
+  name: ""
+
+# -- Pod-level annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+
+# -- Pod-level security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# -- Container-level security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# ── Engine configuration ──────────────────────────────────
+config:
+  # -- Which built-in config profile to use as base (default, docker, live, production)
+  profile: "production"
+  # -- Custom engine configuration (merged on top of profile)
+  # Follows the same structure as config/*.yaml files
+  custom: {}
+  #   engine:
+  #     batch_size: 1000
+  #     worker_count: 8
+  #   sinks:
+  #     rest_api:
+  #       enabled: true
+  #       endpoint: "https://api.example.com"
+
+# ── Secrets ───────────────────────────────────────────────
+secrets:
+  # -- Create a Kubernetes Secret with these key-value pairs
+  # These are injected as environment variables into the container
+  create: false
+  data: {}
+  #   REST_API_TOKEN: ""
+  #   KAFKA_USERNAME: ""
+  #   KAFKA_PASSWORD: ""
+  #   CASSANDRA_USER: ""
+  #   CASSANDRA_PASS: ""
+  #   GRPC_AUTH_TOKEN: ""
+  # -- Use an existing secret instead of creating one
+  existingSecret: ""
+
+# ── Service ───────────────────────────────────────────────
+service:
+  type: ClusterIP
+  # -- Health check endpoint port
+  healthPort: 8080
+  # -- Prometheus metrics port
+  metricsPort: 9090
+
+# ── Ingress (optional, for webhook source) ────────────────
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: durable-engine.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: durable-engine-tls
+  #    hosts:
+  #      - durable-engine.local
+
+# ── Resource limits ───────────────────────────────────────
+resources:
+  requests:
+    cpu: 500m
+    memory: 256Mi
+  limits:
+    cpu: "4"
+    memory: 512Mi
+
+# ── Autoscaling ──────────────────────────────────────────
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+# ── Pod Disruption Budget ─────────────────────────────────
+podDisruptionBudget:
+  enabled: false
+  # -- Minimum available pods (absolute number or percentage)
+  minAvailable: 1
+  # minAvailable: "50%"
+  # maxUnavailable: 1
+
+# ── Health probes ─────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /health
+    port: health
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: health
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: health
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 30
+
+# ── Persistence (for DLQ and checkpoints) ─────────────────
+persistence:
+  dlq:
+    enabled: true
+    # -- Storage class (empty = default)
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  output:
+    enabled: true
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+
+# ── Node scheduling ──────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ── ServiceMonitor (Prometheus Operator) ──────────────────
+serviceMonitor:
+  # -- Create a ServiceMonitor resource for Prometheus Operator
+  enabled: false
+  # -- Additional labels for the ServiceMonitor
+  additionalLabels: {}
+  # -- Scrape interval
+  interval: 15s
+  # -- Scrape timeout
+  scrapeTimeout: 10s
+
+# ── Extra environment variables ───────────────────────────
+extraEnv: []
+#   - name: LOG_LEVEL
+#     value: "DEBUG"
+
+# ── Extra volume mounts (e.g., TLS certs) ────────────────
+extraVolumes: []
+extraVolumeMounts: []

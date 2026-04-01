@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: durable-engine-config
+data:
+  engine.yaml: |
+    engine:
+      name: "durable-engine-staging"
+      batch_size: 500
+      max_queue_size: 10000
+      worker_count: 4
+      shutdown_timeout_seconds: 30
+    ingestion:
+      file_path: "samples/sample.csv"
+      file_format: "auto"
+      checkpoint:
+        enabled: true
+        file: "output/checkpoint.json"
+        interval_seconds: 10
+    sinks:
+      rest_api:
+        enabled: true
+        mode: "live"
+        type: "rest"
+        endpoint: "https://api-staging.example.com"
+        http_path: "/v1/records"
+        http_method: "POST"
+        transformer: "json"
+        headers:
+          Content-Type: "application/json"
+        auth:
+          type: "bearer"
+          token: "${REST_API_TOKEN}"
+        rate_limit:
+          requests_per_second: 50
+          burst_size: 100
+        concurrency: 10
+        timeout_seconds: 30
+        batch_size: 50
+    dlq:
+      output_dir: "dlq"
+      max_file_size_mb: 100
+      include_error_metadata: true
+    observability:
+      reporter:
+        interval_seconds: 10
+        format: "json"
+      logging:
+        level: "INFO"
+        format: "json"
+        file: "output/engine.log"
+      health:
+        enabled: true
+        port: 8080
+        path: "/health"
+      metrics:
+        enabled: true
+        port: 9090
+        path: "/metrics"

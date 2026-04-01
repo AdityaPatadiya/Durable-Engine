@@ -1,0 +1,35 @@
+{{- if .Values.persistence.dlq.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "durable-engine.fullname" . }}-dlq
+  labels:
+    {{- include "durable-engine.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.dlq.accessModes | nindent 4 }}
+  {{- if .Values.persistence.dlq.storageClass }}
+  storageClassName: {{ .Values.persistence.dlq.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.dlq.size }}
+---
+{{- end }}
+{{- if .Values.persistence.output.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "durable-engine.fullname" . }}-output
+  labels:
+    {{- include "durable-engine.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.output.accessModes | nindent 4 }}
+  {{- if .Values.persistence.output.storageClass }}
+  storageClassName: {{ .Values.persistence.output.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.output.size }}
+{{- end }}

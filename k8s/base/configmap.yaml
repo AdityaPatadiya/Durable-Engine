@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: durable-engine-config
+  labels:
+    app.kubernetes.io/name: durable-engine
+data:
+  engine.yaml: |
+    engine:
+      name: "durable-engine-k8s"
+      batch_size: 1000
+      max_queue_size: 50000
+      worker_count: 8
+      shutdown_timeout_seconds: 60
+    ingestion:
+      file_path: "samples/sample.csv"
+      file_format: "auto"
+      encoding: "utf-8"
+      checkpoint:
+        enabled: true
+        file: "output/checkpoint.json"
+        interval_seconds: 5
+    sinks:
+      rest_api:
+        enabled: false
+        mode: "mock"
+        type: "rest"
+        endpoint: "http://localhost:8081"
+        http_path: "/post"
+        http_method: "POST"
+        transformer: "json"
+    dlq:
+      output_dir: "dlq"
+      max_file_size_mb: 100
+      include_error_metadata: true
+    observability:
+      reporter:
+        interval_seconds: 5
+        format: "json"
+      logging:
+        level: "INFO"
+        format: "json"
+        file: "output/engine.log"
+      health:
+        enabled: true
+        port: 8080
+        path: "/health"
+      metrics:
+        enabled: true
+        port: 9090
+        path: "/metrics"

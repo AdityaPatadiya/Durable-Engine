@@ -1,0 +1,25 @@
+Durable Engine has been deployed!
+
+1. Health check endpoint:
+   kubectl port-forward svc/{{ include "durable-engine.fullname" . }} {{ .Values.service.healthPort }}:{{ .Values.service.healthPort }}
+   curl http://localhost:{{ .Values.service.healthPort }}/health
+
+2. Prometheus metrics:
+   kubectl port-forward svc/{{ include "durable-engine.fullname" . }} {{ .Values.service.metricsPort }}:{{ .Values.service.metricsPort }}
+   curl http://localhost:{{ .Values.service.metricsPort }}/metrics
+
+3. View logs:
+   kubectl logs -f deployment/{{ include "durable-engine.fullname" . }}
+
+{{- if .Values.serviceMonitor.enabled }}
+
+4. ServiceMonitor is enabled — Prometheus Operator will auto-discover metrics.
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+5. Ingress is enabled:
+   {{- range .Values.ingress.hosts }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+   {{- end }}
+{{- end }}
