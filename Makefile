@@ -81,9 +81,10 @@ dlq-replay-dry:
 
 infra-up:
 	@if [ -z "$(DOCKER_COMPOSE)" ]; then echo "Error: Neither 'docker compose' nor 'docker-compose' found. Install with: sudo apt install docker-compose-v2"; exit 1; fi
-	$(DOCKER_COMPOSE) up kafka cassandra rabbitmq rest-api
+	$(DOCKER_COMPOSE) up -d kafka cassandra rabbitmq rest-api
 	@echo "Waiting for services to be healthy..."
 	$(DOCKER_COMPOSE) up cassandra-init
+	@echo "Infrastructure is ready. Use 'make infra-down' to stop."
 
 infra-down:
 	$(DOCKER_COMPOSE) down

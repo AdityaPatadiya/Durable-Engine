@@ -102,18 +102,7 @@ services:
     depends_on:
       cassandra:
         condition: service_healthy
-    entrypoint: >
-      cqlsh cassandra -e "
-        CREATE KEYSPACE IF NOT EXISTS fan_out
-          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
-        CREATE TABLE IF NOT EXISTS fan_out.records (
-          record_id TEXT PRIMARY KEY,
-          data TEXT,
-          source_file TEXT,
-          line_number INT,
-          created_at TIMESTAMP
-        );
-      "
+    entrypoint: ["/bin/sh", "-c", "cqlsh cassandra -e \"CREATE KEYSPACE IF NOT EXISTS fan_out WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}; CREATE TABLE IF NOT EXISTS fan_out.records (record_id TEXT PRIMARY KEY, data TEXT, source_file TEXT, line_number INT, created_at TIMESTAMP);\""]
     restart: "no"
 
   # ── Mock REST API (httpbin) ─────────────────────────────
