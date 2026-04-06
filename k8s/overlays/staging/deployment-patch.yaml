@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: durable-engine
+  name: durable-engine  # container name to identify the container in the pod.
 spec:
   replicas: 2
   template:
