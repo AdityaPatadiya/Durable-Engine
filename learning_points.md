@@ -162,7 +162,52 @@ Almost never. Only for:
 - Our Helm test pod (`test-connection.yaml` uses a raw Pod because it runs once and exits)
 
 
---
+# Question-3: Why we need to update and download the linux core packages? and why those are different in the 1st stage and 2nd stage?
+## Builder stage
+
+RUN apt-get install build-essential libxml2-dev libxslt1-dev
+
+- **build-essential** — compiler (gcc) needed to compile C extensions during `pip install`  
+- **libxml2-dev** — development headers for `lxml` compilation  
+- **libxslt1-dev** — development headers for `lxml` compilation  
+
+These are compile-time tools (~200+ MB) and are only needed during `pip install`.
+
+---
+
+## Final stage
+
+RUN apt-get install libxml2 libxslt1.1
+
+- **libxml2** — runtime shared library (`.so` file) that `lxml` links to when your app runs  
+- **libxslt1.1** — runtime shared library for XSLT  
+
+These are much smaller (~10 MB) and required for the application to function.
+
+---
+
+## Why both?
+
+| Package           | What it contains                         | Needed when          | Size     |
+|------------------|------------------------------------------|---------------------|----------|
+| libxml2-dev      | Headers + static libs for compiling      | `pip install lxml`  | Large    |
+| libxml2          | Runtime `.so` library                    | Running the app     | Small    |
+| build-essential  | gcc, make, etc.                          | Compiling C code    | ~200 MB  |
+| (not needed)     |                                          | Runtime             | 0        |
+
+---
+
+Without `libxml2` in the final stage, your app would crash with:
+
+```bash
+ImportError: libxml2.so.2: cannot open shared object file
+```
+The compiled lxml package (from builder) needs the runtime .so files to exist on the system. It just doesn't need the headers/compiler anymore.
+
+
+
+
+---
 # Learning Points 
 ## Reduce the Dockerfile size:
 - Remove the `node_modules` when you don't need the node to and the output is fully static
@@ -177,7 +222,7 @@ WORKDIR /app
 
 COPY package*.json./
 
-COPY
+COPY . .
 
 RUN npm install
 
@@ -185,7 +230,9 @@ EXPOSE 3000
 
 CMD ["node", "index.js"]
 ```
+
 Same application with reduced size under 200 MB:
+
 ```Dockerfile
 FROM node: 22-alpine AS builder
 
@@ -195,7 +242,7 @@ COPY package*.json ./
 
 RUN npm ci --only=production \ && npm cache clean--force
 
-COPY
+COPY . .
 
 FROM node: 22-alpine
 
@@ -209,3 +256,4 @@ CMD ["node", "index.js"]
 ```
 
 - The reason of using the multi-stage builder is that when in the first stage if we do `npm ci` then it will also include the hiddne/cached files in the layer and it's size will be around 80 MB but when in the 2nd stage if we do it will just copy the files from the first stage now the caches and hidden files
+it  Copies final filesystem state only, **No previous layers No build history**

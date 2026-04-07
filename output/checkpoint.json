@@ -1,6 +1,6 @@
 {
-  "source_file": "",
-  "records_processed": 0,
-  "saved_at": "2026-03-29T20:02:08Z",
-  "timestamp": 1774814528.8580263
+  "source_file": "samples/sample.csv",
+  "records_processed": 10,
+  "saved_at": "2026-04-06T21:54:37Z",
+  "timestamp": 1775512477.3759053
 }
