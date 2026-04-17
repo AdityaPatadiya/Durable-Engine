@@ -2,7 +2,7 @@
 replicaCount: 3
 
 image:
-  repository: ghcr.io/adityap-cruv/durable-engine
+  repository: ghcr.io/adityapatadiya/durable-engine
   pullPolicy: IfNotPresent
   # tag: set via CI/CD (e.g., --set image.tag=v1.2.3)
 

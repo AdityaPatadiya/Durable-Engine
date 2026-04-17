@@ -2,7 +2,7 @@
 replicaCount: 2
 
 image:
-  repository: ghcr.io/adityap-cruv/durable-engine
+  repository: ghcr.io/adityapatadiya/durable-engine
   tag: staging
 
 resources:

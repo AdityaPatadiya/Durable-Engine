@@ -30,5 +30,5 @@ patches:
 
 images:
   - name: durable-engine
-    newName: ghcr.io/adityap-cruv/durable-engine
+    newName: ghcr.io/adityapatadiya/durable-engine
     # newTag: set via kustomize edit set image during CI/CD
