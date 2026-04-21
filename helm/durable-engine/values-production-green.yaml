@@ -1,0 +1,11 @@
+# Color-identity overrides for the green release.
+# Layer this file on top of values-production.yaml.
+# Add values-production-standby.yaml on top of this when green is inactive.
+
+image:
+  tag: "prod-green"
+
+config:
+  custom:
+    engine:
+      name: "durable-engine-production-green"

@@ -1,0 +1,51 @@
+# Standby role overrides.
+# Layer this file on top of values-production.yaml AND a color-identity file
+# (values-production-blue.yaml or values-production-green.yaml) when the
+# release is meant to be inactive.
+#
+# The goal is to keep the standby release pod-ready (so cutover is instant)
+# while preventing it from consuming the live source or writing to live sinks.
+
+secrets:
+  create: false
+  existingSecret: ""
+
+config:
+  custom:
+    ingestion:
+      enabled: false
+      # Source settings are kept isolated so nothing points at live topics/slots
+      # if the standby pod is briefly misconfigured.
+      source_type: "kafka"
+      file_path: "samples/sample.csv"
+      kafka:
+        topic: "records-ingested-shadow"
+        group_id: "durable-engine-standby-shadow"
+        auto_offset_reset: "latest"
+      postgres_cdc:
+        publication: "durable_engine_pub_shadow"
+        slot_name: "durable_engine_slot_shadow"
+      websocket:
+        url: "wss://shadow.example.com/events"
+    sinks:
+      rest_api:
+        mode: "mock"
+        endpoint: "https://shadow.invalid"
+        auth:
+          type: "none"
+          token: ""
+      kafka:
+        mode: "mock"
+        topic: "records-ingested-shadow"
+        auth:
+          type: "none"
+          username: ""
+          password: ""
+      cassandra:
+        mode: "mock"
+        keyspace: "fan_out_shadow"
+        table: "records_shadow"
+        auth:
+          type: "none"
+          username: ""
+          password: ""

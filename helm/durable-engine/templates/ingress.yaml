@@ -29,13 +29,14 @@ spec:
       http:
         paths:
           {{- range .paths }}
+          {{- $backendPortName := .backendPortName | default (ternary "ingest" "health" (hasPrefix "/ingest" .path)) }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
               service:
                 name: {{ include "durable-engine.fullname" $ }}
                 port:
-                  name: health
+                  name: {{ $backendPortName }}
           {{- end }}
     {{- end }}
 {{- end }}

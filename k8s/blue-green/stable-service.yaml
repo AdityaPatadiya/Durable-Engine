@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: durable-engine-stable
+  labels:
+    app.kubernetes.io/name: durable-engine
+    app.kubernetes.io/component: stable-switch
+spec:
+  type: ClusterIP
+  ports:
+    - name: ingest
+      port: 8082
+      targetPort: ingest
+      protocol: TCP
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: durable-engine
+    app.kubernetes.io/instance: durable-engine-blue

@@ -36,15 +36,26 @@ class DurableEngine:
     async def run(self) -> int:
         logger.info("engine_initializing", engine_name=self.config.engine.name)
 
-        source = ReaderFactory.create(self.config.ingestion)
+        ingestion_enabled = self.config.ingestion.enabled
+        source = ReaderFactory.create(self.config.ingestion) if ingestion_enabled else None
         transformer_registry = TransformerRegistry()
         dlq = DeadLetterQueue(self.config.dlq)
-        checkpoint = CheckpointManager(self.config.ingestion.checkpoint)
+        checkpoint = (
+            CheckpointManager(self.config.ingestion.checkpoint)
+            if ingestion_enabled
+            else None
+        )
         sinks = SinkFactory.create_all(self.config.sinks, self._metrics)
 
-        if not sinks:
+        if ingestion_enabled and not sinks:
             logger.error("no_sinks_enabled")
             return 1
+
+        if not ingestion_enabled:
+            logger.info(
+                "standby_mode_enabled",
+                source_type=self.config.ingestion.source_type,
+            )
 
         # Start Prometheus metrics server
         if self.config.observability.metrics.enabled:
@@ -67,22 +78,29 @@ class DurableEngine:
             sinks=sinks,
         )
 
-        engine = FanOutEngine(
-            config=self.config.engine,
-            reader=source,
-            transformer_registry=transformer_registry,
-            sinks=sinks,
-            metrics=self._metrics,
-            dlq=dlq,
-            shutdown_event=self._shutdown_event,
-            checkpoint=checkpoint,
-        )
+        engine: FanOutEngine | None = None
+        if ingestion_enabled and source is not None:
+            engine = FanOutEngine(
+                config=self.config.engine,
+                reader=source,
+                transformer_registry=transformer_registry,
+                sinks=sinks,
+                metrics=self._metrics,
+                dlq=dlq,
+                shutdown_event=self._shutdown_event,
+                checkpoint=checkpoint,
+            )
 
         reporter_task = asyncio.create_task(reporter.start())
 
         try:
-            await engine.start()
-            logger.info("engine_completed_successfully")
+            if engine is not None:
+                await engine.start()
+                logger.info("engine_completed_successfully")
+            else:
+                logger.info("standby_waiting_for_shutdown")
+                await self._shutdown_event.wait()
+                logger.info("standby_shutdown_complete")
             return 0
         except Exception:
             logger.exception("engine_failed")
@@ -94,13 +112,14 @@ class DurableEngine:
                 await reporter_task
 
             # Give dispatchers a bounded time to drain
-            try:
-                await asyncio.wait_for(
-                    engine.cleanup(),
-                    timeout=self.config.engine.shutdown_timeout_seconds,
-                )
-            except TimeoutError:
-                logger.warning("cleanup_timed_out")
+            if engine is not None:
+                try:
+                    await asyncio.wait_for(
+                        engine.cleanup(),
+                        timeout=self.config.engine.shutdown_timeout_seconds,
+                    )
+                except TimeoutError:
+                    logger.warning("cleanup_timed_out")
 
             # Stop observability servers
             if self._health_server:

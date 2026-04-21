@@ -6,6 +6,15 @@ image:
   pullPolicy: IfNotPresent
   # tag: set via CI/CD (e.g., --set image.tag=v1.2.3)
 
+# Required if the ghcr.io repository is private. Create the secret out-of-band:
+#   kubectl create secret docker-registry ghcr-credentials \
+#     --docker-server=ghcr.io \
+#     --docker-username=<github-user> \
+#     --docker-password=<PAT-with-read:packages> \
+#     -n durable-engine-production
+# imagePullSecrets:
+#   - name: ghcr-credentials
+
 resources:
   requests:
     cpu: "1"

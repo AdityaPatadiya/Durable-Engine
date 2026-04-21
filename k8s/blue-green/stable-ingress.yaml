@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: durable-engine-stable
+  labels:
+    app.kubernetes.io/name: durable-engine
+    app.kubernetes.io/component: stable-switch
+spec:
+  ingressClassName: ${BG_INGRESS_CLASS}
+  rules:
+    - host: ${BG_HOST}
+      http:
+        paths:
+          - path: /ingest
+            pathType: Prefix
+            backend:
+              service:
+                name: durable-engine-stable
+                port:
+                  name: ingest
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: durable-engine-stable
+                port:
+                  name: health

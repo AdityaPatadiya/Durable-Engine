@@ -65,6 +65,7 @@ class WebSocketSourceConfig(BaseModel):
 
 
 class IngestionConfig(BaseModel):
+    enabled: bool = True
     source_type: str = "file"  # file | kafka | webhook | postgres_cdc | websocket
     # File source settings
     file_path: str = ""

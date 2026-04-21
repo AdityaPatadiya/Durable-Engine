@@ -77,6 +77,8 @@ secrets:
 # ── Service ───────────────────────────────────────────────
 service:
   type: ClusterIP
+  # -- Webhook ingestion endpoint port
+  ingestPort: 8082
   # -- Health check endpoint port
   healthPort: 8080
   # -- Prometheus metrics port
@@ -94,6 +96,8 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+          # -- Optional: override backend service port name (health|ingest)
+          # backendPortName: health
   tls: []
   #  - secretName: durable-engine-tls
   #    hosts:

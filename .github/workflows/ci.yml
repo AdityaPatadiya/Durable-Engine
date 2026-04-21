@@ -112,3 +112,184 @@ jobs:
         run: |
           docker run --rm --entrypoint python durable-engine:${{ github.sha }} \
             -c "from durable_engine import __version__; print(f'v{__version__}')"
+
+  deploy-blue-green:
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.ref == 'refs/heads/main'
+    env:
+      K8S_NAMESPACE: durable-engine-production
+      STABLE_SERVICE_NAME: durable-engine-stable
+      BLUE_RELEASE: durable-engine-blue
+      GREEN_RELEASE: durable-engine-green
+      HELM_CHART: helm/durable-engine
+      BASE_VALUES_FILE: helm/durable-engine/values-production.yaml
+      BLUE_VALUES_FILE: helm/durable-engine/values-production-blue.yaml
+      GREEN_VALUES_FILE: helm/durable-engine/values-production-green.yaml
+      STANDBY_VALUES_FILE: helm/durable-engine/values-production-standby.yaml
+      IMAGE_TAG: ${{ github.sha }}
+      KUBECONFIG: /tmp/kubeconfig
+      KUBECONFIG_SECRET_NAME: KUBECONFIG_B64
+      BG_HOST: durable-engine.example.com
+      BG_INGRESS_CLASS: nginx
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.2
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.4
+
+      - name: Configure kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets[env.KUBECONFIG_SECRET_NAME] }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KUBECONFIG_B64:-}" ]; then
+            echo "Missing required secret: ${KUBECONFIG_SECRET_NAME}" >&2
+            exit 1
+          fi
+          echo "$KUBECONFIG_B64" | base64 --decode > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+          kubectl version --client=true
+
+      - name: Ensure stable switch resources exist
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq gettext-base
+          kubectl get namespace "$K8S_NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$K8S_NAMESPACE"
+          kubectl apply -n "$K8S_NAMESPACE" -f k8s/blue-green/stable-service.yaml
+          BG_HOST="$BG_HOST" BG_INGRESS_CLASS="$BG_INGRESS_CLASS" \
+            envsubst '$BG_HOST $BG_INGRESS_CLASS' \
+            < k8s/blue-green/stable-ingress.yaml \
+            | kubectl apply -n "$K8S_NAMESPACE" -f -
+
+      - name: Determine active and inactive colors
+        id: colors
+        run: |
+          set -euo pipefail
+
+          selector_jsonpath='{.spec.selector.app\.kubernetes\.io/instance}'
+          active_instance="$(kubectl get service "$STABLE_SERVICE_NAME" -n "$K8S_NAMESPACE" -o jsonpath="$selector_jsonpath" 2>/dev/null || true)"
+
+          if [ -z "$active_instance" ]; then
+            active_instance="$BLUE_RELEASE"
+          fi
+
+          if [ "$active_instance" = "$BLUE_RELEASE" ]; then
+            inactive_release="$GREEN_RELEASE"
+            inactive_color="green"
+            inactive_values_file="$GREEN_VALUES_FILE"
+            active_values_file="$BLUE_VALUES_FILE"
+          elif [ "$active_instance" = "$GREEN_RELEASE" ]; then
+            inactive_release="$BLUE_RELEASE"
+            inactive_color="blue"
+            inactive_values_file="$BLUE_VALUES_FILE"
+            active_values_file="$GREEN_VALUES_FILE"
+          else
+            echo "Unexpected active instance '$active_instance'. Expected '$BLUE_RELEASE' or '$GREEN_RELEASE'." >&2
+            exit 1
+          fi
+
+          echo "active_instance=$active_instance" >> "$GITHUB_OUTPUT"
+          echo "inactive_release=$inactive_release" >> "$GITHUB_OUTPUT"
+          echo "inactive_color=$inactive_color" >> "$GITHUB_OUTPUT"
+          echo "inactive_values_file=$inactive_values_file" >> "$GITHUB_OUTPUT"
+          echo "active_values_file=$active_values_file" >> "$GITHUB_OUTPUT"
+
+      # Deploy the inactive release as a warm preflight: same active config as the
+      # current active, new image tag. Duplicate ingestion exists only between
+      # rollout completion and the "revert old active to standby" step below.
+      - name: Deploy inactive release with new image tag
+        env:
+          INACTIVE_RELEASE: ${{ steps.colors.outputs.inactive_release }}
+          INACTIVE_VALUES_FILE: ${{ steps.colors.outputs.inactive_values_file }}
+        run: |
+          set -euo pipefail
+          helm upgrade --install "$INACTIVE_RELEASE" "$HELM_CHART" \
+            --namespace "$K8S_NAMESPACE" \
+            --create-namespace \
+            -f "$BASE_VALUES_FILE" \
+            -f "$INACTIVE_VALUES_FILE" \
+            --set image.tag="$IMAGE_TAG"
+
+      - name: Wait for inactive rollout and smoke check
+        env:
+          INACTIVE_RELEASE: ${{ steps.colors.outputs.inactive_release }}
+        run: |
+          set -euo pipefail
+          kubectl rollout status deployment/"$INACTIVE_RELEASE" -n "$K8S_NAMESPACE" --timeout=300s
+
+          inactive_smoke_pod="smoke-inactive-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          kubectl run "$inactive_smoke_pod" \
+            -n "$K8S_NAMESPACE" \
+            --image=curlimages/curl:8.8.0 \
+            --restart=Never \
+            --rm \
+            --attach \
+            --command -- sh -c "curl -fsS --max-time 15 http://${INACTIVE_RELEASE}.${K8S_NAMESPACE}.svc.cluster.local:8080/health >/dev/null"
+
+      - name: Verify PVC isolation across colors
+        run: |
+          set -euo pipefail
+          make k8s-verify-persistence-isolation \
+            K8S_PROD_NAMESPACE="$K8S_NAMESPACE" \
+            BLUE_RELEASE="$BLUE_RELEASE" \
+            GREEN_RELEASE="$GREEN_RELEASE"
+
+      - name: Switch stable selector and run post-switch health check
+        env:
+          ACTIVE_INSTANCE: ${{ steps.colors.outputs.active_instance }}
+          INACTIVE_RELEASE: ${{ steps.colors.outputs.inactive_release }}
+        run: |
+          set -euo pipefail
+
+          switched="false"
+          rollback() {
+            if [ "$switched" = "true" ]; then
+              echo "Post-switch check failed. Rolling back selector to '$ACTIVE_INSTANCE'." >&2
+              rollback_payload="$(printf '{"spec":{"selector":{"app.kubernetes.io/name":"durable-engine","app.kubernetes.io/instance":"%s"}}}' "$ACTIVE_INSTANCE")"
+              kubectl patch service "$STABLE_SERVICE_NAME" -n "$K8S_NAMESPACE" --type=merge -p "$rollback_payload"
+            fi
+          }
+          trap 'status=$?; if [ "$status" -ne 0 ]; then rollback; fi; exit "$status"' EXIT
+
+          switch_payload="$(printf '{"spec":{"selector":{"app.kubernetes.io/name":"durable-engine","app.kubernetes.io/instance":"%s"}}}' "$INACTIVE_RELEASE")"
+          kubectl patch service "$STABLE_SERVICE_NAME" -n "$K8S_NAMESPACE" --type=merge -p "$switch_payload"
+          switched="true"
+
+          post_switch_smoke_pod="smoke-stable-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          kubectl run "$post_switch_smoke_pod" \
+            -n "$K8S_NAMESPACE" \
+            --image=curlimages/curl:8.8.0 \
+            --restart=Never \
+            --rm \
+            --attach \
+            --command -- sh -c "curl -fsS --max-time 15 http://${STABLE_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:8080/health >/dev/null"
+
+          trap - EXIT
+
+      # After a successful switch, the former-active release must stop consuming
+      # the live source. Reconfigure it with the standby profile so its pods
+      # restart with ingestion disabled and sinks mocked.
+      - name: Revert former-active release to standby profile
+        env:
+          FORMER_ACTIVE_RELEASE: ${{ steps.colors.outputs.active_instance }}
+          FORMER_ACTIVE_VALUES_FILE: ${{ steps.colors.outputs.active_values_file }}
+        run: |
+          set -euo pipefail
+          if ! helm status "$FORMER_ACTIVE_RELEASE" -n "$K8S_NAMESPACE" >/dev/null 2>&1; then
+            echo "Former-active release '$FORMER_ACTIVE_RELEASE' is not installed; skipping standby revert."
+            exit 0
+          fi
+          helm upgrade "$FORMER_ACTIVE_RELEASE" "$HELM_CHART" \
+            --namespace "$K8S_NAMESPACE" \
+            -f "$BASE_VALUES_FILE" \
+            -f "$FORMER_ACTIVE_VALUES_FILE" \
+            -f "$STANDBY_VALUES_FILE"
+          kubectl rollout status deployment/"$FORMER_ACTIVE_RELEASE" -n "$K8S_NAMESPACE" --timeout=300s

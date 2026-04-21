@@ -17,8 +17,12 @@
     },
     "ingestion": {
       "type": "object",
-      "required": ["file_path"],
       "properties": {
+        "enabled": { "type": "boolean" },
+        "source_type": {
+          "type": "string",
+          "enum": ["file", "kafka", "webhook", "postgres_cdc", "websocket"]
+        },
         "file_path": { "type": "string" },
         "file_format": { "type": "string", "enum": ["auto", "csv", "jsonl", "fixed_width"] },
         "encoding": { "type": "string" }

@@ -1,0 +1,11 @@
+# Color-identity overrides for the blue release.
+# Layer this file on top of values-production.yaml.
+# Add values-production-standby.yaml on top of this when blue is inactive.
+
+image:
+  tag: "prod-blue"
+
+config:
+  custom:
+    engine:
+      name: "durable-engine-production-blue"
