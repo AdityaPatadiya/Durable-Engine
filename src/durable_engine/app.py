@@ -41,9 +41,7 @@ class DurableEngine:
         transformer_registry = TransformerRegistry()
         dlq = DeadLetterQueue(self.config.dlq)
         checkpoint = (
-            CheckpointManager(self.config.ingestion.checkpoint)
-            if ingestion_enabled
-            else None
+            CheckpointManager(self.config.ingestion.checkpoint) if ingestion_enabled else None
         )
         sinks = SinkFactory.create_all(self.config.sinks, self._metrics)
 
