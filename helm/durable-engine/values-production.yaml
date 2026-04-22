@@ -190,6 +190,8 @@ config:
         path: "/metrics"
 
 serviceMonitor:
-  enabled: true
+  # Requires Prometheus Operator CRDs in the cluster.
+  # Re-enable after installing kube-prometheus-stack (or just the operator CRDs).
+  enabled: false
   interval: 15s
   scrapeTimeout: 10s
