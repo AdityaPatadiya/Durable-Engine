@@ -6,7 +6,8 @@
 	k8s-deploy-blue-standby k8s-deploy-green-standby \
 	k8s-revert-to-standby \
 	k8s-switch-blue k8s-switch-green k8s-switch-active-color k8s-rollback-switch \
-	k8s-show-active-status k8s-verify-persistence-isolation k8s-stable-status
+	k8s-show-active-status k8s-verify-persistence-isolation k8s-stable-status \
+	ecr-login ecr-push
 
 # Auto-detect docker compose command
 DOCKER_COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; else echo ""; fi)
@@ -327,3 +328,23 @@ k8s-verify-persistence-isolation:
 	echo "green_pvcs=$$(printf '%s' "$$green_pvcs" | tr '\n' ' ')"
 
 k8s-stable-status: k8s-show-active-status
+
+# ── ECR ─────────────────────────────────────────────────
+ECR_REGION ?= ap-south-1
+ECR_REPO ?= durable-engine
+ECR_TAG ?= latest
+
+ecr-login:
+	@set -eu; \
+	AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text); \
+	aws ecr get-login-password --region $(ECR_REGION) | \
+		docker login --username AWS --password-stdin $$AWS_ACCOUNT_ID.dkr.ecr.$(ECR_REGION).amazonaws.com
+
+ecr-push: ecr-login
+	@set -eu; \
+	AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text); \
+	URI=$$AWS_ACCOUNT_ID.dkr.ecr.$(ECR_REGION).amazonaws.com/$(ECR_REPO); \
+	docker build -t $(ECR_REPO):$(ECR_TAG) .; \
+	docker tag $(ECR_REPO):$(ECR_TAG) $$URI:$(ECR_TAG); \
+	docker push $$URI:$(ECR_TAG); \
+	echo "Pushed $$URI:$(ECR_TAG)"

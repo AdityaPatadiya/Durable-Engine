@@ -130,7 +130,7 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
       KUBECONFIG: /tmp/kubeconfig
       KUBECONFIG_SECRET_NAME: KUBECONFIG_B64
-      BG_HOST: durable-engine.example.com
+      BG_HOST: a777f79cdfe3c45af9f9a1b040d10c22-1729436496.ap-south-1.elb.amazonaws.com
       BG_INGRESS_CLASS: nginx
     steps:
       - uses: actions/checkout@v4
